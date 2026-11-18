@@ -1,18 +1,34 @@
 import Graph from 'graphology'
 import louvain from 'graphology-communities-louvain'
 
+export interface ConfigInstituto {
+  instituto: string
+  nomeCompleto: string
+  camadasDocentes: string[]
+  coresCamadas: Record<string, string>
+}
+
+export const CONFIG_PADRAO: ConfigInstituto = {
+  instituto: 'IMC',
+  nomeCompleto: 'UNIFEI · Instituto de Matemática e Computação',
+  camadasDocentes: ['Matemática', 'Computação'],
+  coresCamadas: { Matemática: '#3ea3af', Computação: '#ff1d44', Externo: '#9fb4b1' },
+}
+
 export interface Rede {
+  instituto?: string
+  institutos?: string[]
   camadas: string[]
   categorias: string[]
   tipos: string[]
-  nos: [string, number, number, number, number][]
+  nos: ([string, number, number, number, number] | [string, number, number, number, number, number])[]
   arestas: number[][]
 }
 export type Pesos = { P: number; F: number; J: number }
 export type ModeloPeso = 'M1' | 'M2' | 'M3'
 export type ModoCor = 'comunidade' | 'area' | 'categoria'
 export type ModoTamanho = 'grau' | 'forca' | 'fixo'
-export type Visao = 'completa' | 'docentes' | 'ego'
+export type Visao = 'completa' | 'docentes' | 'ego' | 'instituto'
 export interface Filtros {
   mat: boolean
   comp: boolean
@@ -340,6 +356,67 @@ export function exportaComunidadesCSV(r: Rede, com: Comunidades): string {
   docs.sort((a, b) => a.codigo.localeCompare(b.codigo))
   for (const d of docs) linhas.push(`${d.codigo},${d.area},${d.grupo}`)
   return linhas.join('\n')
+}
+
+/** Retorna a sigla do instituto de um nó (ou 'Externo' quando colaborador externo). */
+export function institutoDoNo(r: Rede, i: number, config: ConfigInstituto = CONFIG_PADRAO): string {
+  const n = r.nos[i]
+  if (r.institutos && n.length >= 6 && typeof n[5] === 'number') {
+    return r.institutos[n[5]] ?? config.instituto
+  }
+  return ehDocente(r, i) ? (r.instituto ?? config.instituto) : 'Externo'
+}
+
+export interface RedeInstitutos {
+  nos: { id: string; docentes: number; externos: number; pesoInterno: number }[]
+  arestas: { origem: string; destino: string; peso: number; quantidade: number }[]
+}
+
+/** Agrega a rede por instituto (cada instituto como nó agregado com arestas ponderadas). */
+export function agregaPorInstituto(
+  r: Rede,
+  w: ArrayLike<number>,
+  config: ConfigInstituto = CONFIG_PADRAO,
+): RedeInstitutos {
+  const mapaNos = new Map<string, { id: string; docentes: number; externos: number; pesoInterno: number }>()
+  const instPorNo = new Array<string>(r.nos.length)
+
+  for (let i = 0; i < r.nos.length; i++) {
+    const inst = institutoDoNo(r, i, config)
+    instPorNo[i] = inst
+    let entry = mapaNos.get(inst)
+    if (!entry) {
+      entry = { id: inst, docentes: 0, externos: 0, pesoInterno: 0 }
+      mapaNos.set(inst, entry)
+    }
+    if (ehDocente(r, i)) entry.docentes++
+    else entry.externos++
+  }
+
+  const mapaArestas = new Map<string, { origem: string; destino: string; peso: number; quantidade: number }>()
+  for (let k = 0; k < r.arestas.length; k++) {
+    const a = r.arestas[k]
+    const ia = instPorNo[a[0]], ib = instPorNo[a[1]]
+    const wk = w[k]
+    if (ia === ib) {
+      mapaNos.get(ia)!.pesoInterno += wk
+    } else {
+      const [u, v] = ia < ib ? [ia, ib] : [ib, ia]
+      const chave = `${u}::${v}`
+      let e = mapaArestas.get(chave)
+      if (!e) {
+        e = { origem: u, destino: v, peso: 0, quantidade: 0 }
+        mapaArestas.set(chave, e)
+      }
+      e.peso += wk
+      e.quantidade++
+    }
+  }
+
+  return {
+    nos: [...mapaNos.values()].sort((a, b) => b.docentes - a.docentes || a.id.localeCompare(b.id)),
+    arestas: [...mapaArestas.values()],
+  }
 }
 
 export interface DetalhesNo {

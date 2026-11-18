@@ -31,6 +31,14 @@ npm run build      # typecheck + build estático em dist/
 - **Pseudonimização:** nenhum nome, CPF ou id Lattes é incluído no bundle ou nos arquivos públicos (`public/rede.json`, CSVs exportados ou hash de URL). Todos os nós são identificados exclusivamente por códigos (`D01`–`D48` para docentes e `X00001`–`X02065` para colaboradores externos).
 - **Limites de interpretação:** _Evidência relacional; não mede mérito nem desempenho._ A estrutura da rede reflete vínculos registrados de coautoria, orientação, bancas e projetos no recorte 2020–2025, não devendo ser utilizada como ranking individual ou métrica de avaliação docente.
 
+### Expansão para outros institutos
+
+- O esquema suporta configuração por instituto em `public/config/<sigla>.json` (ex.: `public/config/imc.json`) e exportação parametrizada via:
+  ```bash
+  python exportar_dados.py --instituto IMC --entrada dados/rede --saida public/rede.json
+  ```
+- **Revisão obrigatória de privacidade (LGPD) antes de publicar novos institutos:** antes de disponibilizar a rede de qualquer outro instituto, verificar (1) que todos os rótulos são códigos pseudonimizados sem vínculo com nomes ou ids Lattes na saída pública, (2) que institutos ou subgrupos com número muito reduzido de docentes não permitem reidentificação indireta por combinação de área/categoria/grau, e (3) que o tratamento segue enquadrado na base legal de pesquisa científica (LGPD, art. 7º, IV) com aprovação/ciência institucional pertinente.
+
 ## Publicação no GitHub Pages
 
 O repositório inclui o workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml), que executa `npm ci`, `npm run lint`, `npm run typecheck`, `npm test` e `npm run build` em cada push/PR, e publica automaticamente o diretório `dist/` no GitHub Pages quando há push na branch `main`.

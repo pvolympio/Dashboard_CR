@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import {
+  agregaPorInstituto,
   calculaM2,
   calculaNMI,
   calculaPesos,
   comunidades,
+  CONFIG_PADRAO,
   detalhesNo,
   ehDocente,
   exportaComunidadesCSV,
   filtraRede,
+  institutoDoNo,
   layoutEgocentrico,
   normaliza,
   PESOS_PADRAO,
@@ -111,5 +114,15 @@ describe('Louvain', () => {
     expect(res!.com.nmi).toBe(c.nmi)
     expect(res!.com.tamanhos).toEqual(c.tamanhos)
     expect([...res!.com.particao.entries()]).toEqual([...c.particao.entries()])
+  })
+
+  it('agrega a rede por instituto usando configuração genérica', () => {
+    expect(institutoDoNo(rede, 0, CONFIG_PADRAO)).toBe('IMC')
+    const ag = agregaPorInstituto(rede, calculaM2(rede, PESOS_PADRAO), CONFIG_PADRAO)
+    expect(ag.nos.map((n) => n.id)).toEqual(['IMC', 'Externo'])
+    expect(ag.nos[0].docentes).toBe(48)
+    expect(ag.nos[1].externos).toBe(2065)
+    expect(ag.arestas.length).toBe(1)
+    expect(ag.arestas[0].quantidade).toBeGreaterThan(0)
   })
 })

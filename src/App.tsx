@@ -2,10 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { NetworkView, type CameraCtrl } from './NetworkView'
 import { SimuladorPanel } from './components/SimuladorPanel'
 import {
+  agregaPorInstituto,
   calculaPesos,
+  CONFIG_PADRAO,
   detalhesNo,
   exportaComunidadesCSV,
   filtraRede,
+  type ConfigInstituto,
   type ModeloPeso,
   type ModoCor,
   type ModoTamanho,
@@ -24,6 +27,7 @@ const fmtDec = (n: number, d = 2) => n.toFixed(d).replace('.', ',')
 
 export default function App() {
   const [rede, setRede] = useState<Rede | null>(null)
+  const [config, setConfig] = useState<ConfigInstituto>(CONFIG_PADRAO)
   const [refAleat, setRefAleat] = useState<ReferenciaAleatoria | null>(null)
   const [erro, setErro] = useState('')
   const [busca, setBusca] = useState('')
@@ -87,6 +91,12 @@ export default function App() {
         if (d) setRefAleat(d)
       })
       .catch(() => {})
+    fetch(`${import.meta.env.BASE_URL}config/imc.json`, { signal: ac.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => {
+        if (c) setConfig(c)
+      })
+      .catch(() => {})
     return () => ac.abort()
   }, [aplicaEstadoURL])
 
@@ -137,6 +147,10 @@ export default function App() {
   const det = useMemo(
     () => (rede && filtrada && sel !== null ? detalhesNo(rede, w, filtrada.arestasVisiveis, com, sel) : null),
     [rede, filtrada, w, com, sel],
+  )
+  const redeInst = useMemo(
+    () => (rede && visao === 'instituto' ? agregaPorInstituto(rede, w, config) : null),
+    [rede, w, visao, config],
   )
 
   const legendaAtual = useMemo(() => {
@@ -200,7 +214,7 @@ export default function App() {
       />
 
       <header className="ttl">
-        <div className="kick">UNIFEI · Instituto de Matemática e Computação</div>
+        <div className="kick">{config.nomeCompleto}</div>
         <h1>
           Rede de cooperação <em>científica</em>
         </h1>
@@ -366,6 +380,7 @@ export default function App() {
                 ['completa', 'Completa'],
                 ['docentes', 'Docentes'],
                 ['ego', 'Egocêntrica'],
+                ['instituto', 'Instituto'],
               ] as [Visao, string][]
             ).map(([v, lbl]) => (
               <button
@@ -510,7 +525,40 @@ export default function App() {
         </section>
       )}
 
-      {!apresentacao && det && (
+      {!apresentacao && redeInst && (
+        <section className="card insp" aria-label="Visão agregada por instituto">
+          <div className="kick">Visão por instituto (clique para expandir)</div>
+          <div className="groups" style={{ marginTop: 8 }}>
+            {redeInst.nos.map(no => (
+              <button
+                key={no.id}
+                type="button"
+                className="row-btn"
+                onClick={() => setVisao(no.id === 'Externo' ? 'completa' : 'docentes')}
+              >
+                <i style={{ background: no.id === 'Externo' ? AREA_CORES.Externo : PALETA[0] }} />
+                <span>{no.id}</span>
+                <b>{no.docentes > 0 ? `${no.docentes} doc.` : `${no.externos} ext.`}</b>
+              </button>
+            ))}
+          </div>
+          {redeInst.arestas.length > 0 && (
+            <div className="insp-sec">
+              <div className="kick">Arestas entre grupos</div>
+              <ul className="tipo-list">
+                {redeInst.arestas.map(a => (
+                  <li key={`${a.origem}-${a.destino}`}>
+                    <span>{a.origem} ↔ {a.destino} ({a.quantidade})</span>
+                    <b>{fmtDec(a.peso, 2)}</b>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
+
+      {!apresentacao && det && !redeInst && (
         <section className="card insp" aria-label={`Detalhes de ${det.codigo}`}>
           <div className="insp-head">
             <div>

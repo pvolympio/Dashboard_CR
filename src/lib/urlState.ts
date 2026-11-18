@@ -13,7 +13,7 @@ export interface EstadoURL {
 const MODELOS = new Set<ModeloPeso>(['M1', 'M2', 'M3'])
 const CORES = new Set<ModoCor>(['comunidade', 'area', 'categoria'])
 const TAMANHOS = new Set<ModoTamanho>(['grau', 'forca', 'fixo'])
-const VISOES = new Set<Visao>(['completa', 'docentes', 'ego'])
+const VISOES = new Set<Visao>(['completa', 'docentes', 'ego', 'instituto'])
 
 /** Serializa o estado de visualização em hash de URL sem dados sensíveis. */
 export function serializaHash(e: Required<Omit<EstadoURL, 'selCodigo'>> & { selCodigo: string | null }): string {

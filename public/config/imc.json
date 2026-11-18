@@ -1,0 +1,10 @@
+{
+  "instituto": "IMC",
+  "nomeCompleto": "UNIFEI · Instituto de Matemática e Computação",
+  "camadasDocentes": ["Matemática", "Computação"],
+  "coresCamadas": {
+    "Matemática": "#3ea3af",
+    "Computação": "#ff1d44",
+    "Externo": "#9fb4b1"
+  }
+}
