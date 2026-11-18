@@ -28,6 +28,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .checks{display:flex;flex-wrap:wrap;gap:8px 12px;margin:6px 0 8px;font-size:13px}.checks label{display:flex;align-items:center;gap:5px;cursor:pointer}.checks input{accent-color:var(--accent)}
 .btn{margin-top:12px;width:100%;border:1px solid var(--line);background:transparent;color:var(--ink);padding:7px;border-radius:99px;font:500 12.5px inherit;cursor:pointer}.btn:hover{border-color:var(--accent);color:var(--accent)}
+.export-row{display:flex;gap:6px;margin-top:10px}.export-row .btn-sm{flex:1;padding:5px 6px;font-size:11.5px;text-align:center}
+.btn-pres-exit{right:28px;top:22px;padding:8px 14px!important;cursor:pointer;font-size:12.5px;font-weight:500}.btn-pres-exit:hover{border-color:var(--accent);color:var(--accent)}
 .kp{display:flex;gap:20px;margin:8px 0 10px}.kp b{display:block;font:400 28px/1 Fraunces,serif}
 .groups{display:flex;flex-direction:column;gap:4px}
 .grp{border-bottom:1px solid var(--line);padding-bottom:6px}.grp.on{background:var(--dim);border-radius:8px;padding:6px}

@@ -1,10 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { NetworkView, type CameraCtrl } from './NetworkView'
 import { SimuladorPanel } from './components/SimuladorPanel'
-import { calculaPesos, detalhesNo, filtraRede, type ModeloPeso, type ModoCor, type ModoTamanho, type Rede } from './lib/rede'
+import {
+  calculaPesos,
+  detalhesNo,
+  exportaComunidadesCSV,
+  filtraRede,
+  type ModeloPeso,
+  type ModoCor,
+  type ModoTamanho,
+  type Rede,
+  type Visao,
+} from './lib/rede'
 import { AREA_CORES, CATEGORIA_CORES, CATEGORIA_NOMES, PALETA, TIPO_NOMES } from './lib/rotulos'
 import type { ReferenciaAleatoria } from './lib/simulacao'
 import { useLouvain } from './lib/useLouvain'
+import { parseHash, serializaHash } from './lib/urlState'
 import { useStore } from './store'
 
 const NOMES_PESO = { P: 'Publicação', F: 'Formação', J: 'Projeto' } as const
@@ -21,23 +32,39 @@ export default function App() {
   const camRef = useRef<CameraCtrl | null>(null)
 
   const {
-    modelo, pesos, resolucao, modoCor, modoTamanho, filtros, sel, grupoRealcado, afastados, simAberto,
-    setModelo, setPeso, setResolucao, setModoCor, setModoTamanho, setFiltro, seleciona, realcaGrupo,
-    afastaDocente, toggleSim, reinicia,
+    modelo, pesos, resolucao, modoCor, modoTamanho, visao, apresentacao, filtros, sel, grupoRealcado, afastados, simAberto,
+    setModelo, setPeso, setResolucao, setModoCor, setModoTamanho, setVisao, toggleApresentacao, aplicaEstadoURL,
+    setFiltro, seleciona, realcaGrupo, afastaDocente, toggleSim, reinicia,
   } = useStore()
+  const hashRestaurado = useRef(false)
 
   useEffect(() => {
     const ac = new AbortController()
     fetch(`${import.meta.env.BASE_URL}rede.json`, { signal: ac.signal })
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
-      .then(setRede)
+      .then((dados: Rede) => {
+        setRede(dados)
+        if (!hashRestaurado.current) {
+          hashRestaurado.current = true
+          const parsed = parseHash(window.location.hash)
+          const selIdx = parsed.selCodigo ? dados.nos.findIndex(n => n[0] === parsed.selCodigo) : undefined
+          aplicaEstadoURL({ ...parsed, sel: selIdx !== undefined && selIdx >= 0 ? selIdx : undefined })
+        }
+      })
       .catch(e => { if (e.name !== 'AbortError') setErro(String(e)) })
     fetch(`${import.meta.env.BASE_URL}referencia_aleatoria.json`, { signal: ac.signal })
       .then(r => (r.ok ? r.json() : null))
       .then(d => { if (d) setRefAleat(d) })
       .catch(() => {})
     return () => ac.abort()
-  }, [])
+  }, [aplicaEstadoURL])
+
+  useEffect(() => {
+    if (!rede || !hashRestaurado.current) return
+    const selCodigo = sel !== null ? rede.nos[sel]?.[0] ?? null : null
+    const hash = serializaHash({ modelo, pesos, resolucao, modoCor, modoTamanho, visao, selCodigo })
+    if (window.location.hash !== hash) window.history.replaceState(null, '', hash)
+  }, [rede, modelo, pesos, resolucao, modoCor, modoTamanho, visao, sel])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -46,6 +73,9 @@ export default function App() {
       if (e.key === '/' && !emInput) {
         e.preventDefault()
         buscaRef.current?.focus()
+      } else if ((e.key === 'p' || e.key === 'P') && !emInput && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault()
+        toggleApresentacao()
       } else if (e.key === 'Escape') {
         seleciona(null)
         if (emInput) (e.target as HTMLElement).blur()
@@ -53,11 +83,14 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [seleciona])
+  }, [seleciona, toggleApresentacao])
 
   const w = useMemo(() => (rede ? calculaPesos(rede, modelo, pesos) : new Float64Array()), [rede, modelo, pesos])
   const afastadosSet = useMemo(() => new Set(afastados), [afastados])
-  const filtrada = useMemo(() => (rede ? filtraRede(rede, w, filtros, afastadosSet) : null), [rede, w, filtros, afastadosSet])
+  const filtrada = useMemo(
+    () => (rede ? filtraRede(rede, w, filtros, afastadosSet, visao, sel) : null),
+    [rede, w, filtros, afastadosSet, visao, sel],
+  )
   const { com } = useLouvain(rede, w, resolucao)
 
   const membrosPorGrupo = useMemo(() => {
@@ -93,8 +126,36 @@ export default function App() {
     camRef.current?.focusNode(idx)
   }
 
+  const legendaAtual = useMemo(() => {
+    if (modoCor === 'area') {
+      return [
+        { cor: AREA_CORES['Matemática'], label: 'Matemática' },
+        { cor: AREA_CORES['Computação'], label: 'Computação' },
+        { cor: AREA_CORES.Externo, label: 'Externo' },
+      ]
+    }
+    if (modoCor === 'categoria') {
+      return Object.entries(CATEGORIA_NOMES).map(([k, label]) => ({ cor: CATEGORIA_CORES[k], label }))
+    }
+    return [
+      { cor: PALETA[0], label: 'Docentes por comunidade' },
+      { cor: AREA_CORES.Externo, label: 'Externo' },
+    ]
+  }, [modoCor])
+
+  const baixaCSVComunidades = () => {
+    const csv = exportaComunidadesCSV(rede, com)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'comunidades_docentes.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
-    <div id="app">
+    <div id="app" className={apresentacao ? 'pres' : ''}>
       <NetworkView rede={rede} w={w} filtrada={filtrada} com={com} onCameraReady={c => { camRef.current = c }} />
 
       <header className="ttl">
@@ -104,9 +165,17 @@ export default function App() {
           <span><b>{fmtInt(filtrada.contagens.nos)}</b> nós</span>
           <span><b>{fmtInt(filtrada.contagens.docentes)}</b> docentes</span>
           <span><b>{fmtInt(filtrada.contagens.arestas)}</b> arestas</span>
+          {apresentacao && <span><b>{fmtDec(com.Q, 3)}</b> mod. Q</span>}
         </div>
       </header>
 
+      {apresentacao && (
+        <button type="button" className="card btn-pres-exit" onClick={() => toggleApresentacao(false)}>
+          Sair da apresentação (P)
+        </button>
+      )}
+
+      {!apresentacao && (
       <aside className="card ctl" aria-label="Controles de exploração">
         <form onSubmit={onBuscar} className="search">
           <label htmlFor="busca-no" className="kick">Buscar nó (/)</label>
@@ -168,6 +237,14 @@ export default function App() {
           ))}
         </div>
 
+        <h2>Visão da rede</h2>
+        <div className="seg" role="group" aria-label="Visão da rede">
+          {([['completa', 'Completa'], ['docentes', 'Docentes'], ['ego', 'Egocêntrica']] as [Visao, string][]).map(([v, lbl]) => (
+            <button key={v} type="button" className={visao === v ? 'on' : ''} aria-pressed={visao === v} onClick={() => setVisao(v)}>{lbl}</button>
+          ))}
+        </div>
+        {visao === 'ego' && sel === null && <div className="muted-txt" style={{ marginTop: 4 }}>Selecione um nó para centralizar a visão egocêntrica.</div>}
+
         <h2>Filtros</h2>
         <div className="checks">
           <label><input type="checkbox" checked={filtros.mat} onChange={e => setFiltro('mat', e.target.checked)} /> Matemática</label>
@@ -180,9 +257,17 @@ export default function App() {
           <input type="range" min={0} max={95} step={5} value={filtros.percentil} onChange={e => setFiltro('percentil', +e.target.value)} />
         </label>
 
+        <div className="export-row">
+          <button type="button" className="btn-sm" onClick={() => camRef.current?.exportPNG(legendaAtual)}>Exportar PNG</button>
+          <button type="button" className="btn-sm" onClick={baixaCSVComunidades}>CSV grupos</button>
+          <button type="button" className="btn-sm" onClick={() => toggleApresentacao(true)} title="Atalho: P">Apresentar</button>
+        </div>
+
         <button type="button" className="btn" onClick={reinicia}>Restaurar padrão</button>
       </aside>
+      )}
 
+      {!apresentacao && (
       <section className="card res" aria-label="Comunidades entre docentes">
         <div className="kick">Comunidades entre docentes</div>
         <div className="kp" aria-live="polite">
@@ -219,8 +304,9 @@ export default function App() {
           ))}
         </div>
       </section>
+      )}
 
-      {det && (
+      {!apresentacao && det && (
         <section className="card insp" aria-label={`Detalhes de ${det.codigo}`}>
           <div className="insp-head">
             <div>
@@ -272,24 +358,12 @@ export default function App() {
         </section>
       )}
 
+      {!apresentacao && (
       <div className={`hud-bot ${simAberto ? 'sim-up' : ''}`}>
         <div className="card legend" aria-label="Legenda de cores">
-          {modoCor === 'area' && (
-            <>
-              <span><i style={{ background: AREA_CORES['Matemática'] }} />Matemática</span>
-              <span><i style={{ background: AREA_CORES['Computação'] }} />Computação</span>
-              <span><i style={{ background: AREA_CORES.Externo }} />Externo</span>
-            </>
-          )}
-          {modoCor === 'categoria' && Object.entries(CATEGORIA_NOMES).map(([k, nome]) => (
-            <span key={k}><i style={{ background: CATEGORIA_CORES[k] }} />{nome}</span>
+          {legendaAtual.map(item => (
+            <span key={item.label}><i style={{ background: item.cor }} />{item.label}</span>
           ))}
-          {modoCor === 'comunidade' && (
-            <>
-              <span><i style={{ background: PALETA[0] }} />Docentes por grupo</span>
-              <span><i style={{ background: AREA_CORES.Externo }} />Externo</span>
-            </>
-          )}
         </div>
         <div className="card zoom-bar" role="group" aria-label="Controles de zoom">
           <button type="button" aria-label="Aumentar zoom" onClick={() => camRef.current?.zoomIn()}>+</button>
@@ -297,8 +371,9 @@ export default function App() {
           <button type="button" aria-label="Reiniciar enquadramento" onClick={() => camRef.current?.reset()}>↺</button>
         </div>
       </div>
+      )}
 
-      <SimuladorPanel rede={rede} w={w} refAleat={refAleat} />
+      {!apresentacao && <SimuladorPanel rede={rede} w={w} refAleat={refAleat} />}
 
       <p className="note">Evidência relacional; não mede mérito nem desempenho.</p>
     </div>

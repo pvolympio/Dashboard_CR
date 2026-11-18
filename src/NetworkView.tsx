@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import Graph from 'graphology'
 import Sigma from 'sigma'
-import { ehDocente, type Comunidades, type Rede, type RedeFiltrada } from './lib/rede'
+import { ehDocente, layoutEgocentrico, type Comunidades, type Rede, type RedeFiltrada } from './lib/rede'
 import { AREA_CORES, CATEGORIA_CORES, PALETA } from './lib/rotulos'
 import { useStore } from './store'
 
@@ -10,6 +10,7 @@ export interface CameraCtrl {
   zoomOut: () => void
   reset: () => void
   focusNode: (idx: number) => void
+  exportPNG: (legenda: { cor: string; label: string }[]) => void
 }
 
 interface CoresTema { ink: string; edge: string; sel: string; dim: string }
@@ -40,7 +41,7 @@ export function NetworkView({
   const sg = useRef<Sigma | null>(null)
   const grafoRef = useRef<Graph | null>(null)
   const coresRef = useRef<CoresTema>(leCores())
-  const { sel, modoCor, modoTamanho, grupoRealcado } = useStore()
+  const { sel, modoCor, modoTamanho, grupoRealcado, visao } = useStore()
 
   const { wmax, gmaxVis, fmaxVis } = useMemo(() => {
     let wm = 0, gm = 0, fm = 0
@@ -169,6 +170,50 @@ export function NetworkView({
         const pos = s.getNodeDisplayData(String(idx))
         if (pos) s.getCamera().animate({ x: pos.x, y: pos.y, ratio: 0.25 }, { duration: 350 })
       },
+      exportPNG: (legenda: { cor: string; label: string }[]) => {
+        const container = el.current
+        if (!container) return
+        const canvases = container.querySelectorAll('canvas')
+        if (canvases.length === 0) return
+        const w = container.clientWidth || 1200, h = container.clientHeight || 800
+        const out = document.createElement('canvas')
+        out.width = w
+        out.height = h
+        const ctx = out.getContext('2d')
+        if (!ctx) return
+        const st = getComputedStyle(document.documentElement)
+        ctx.fillStyle = st.getPropertyValue('--bg').trim() || '#f0f6b9'
+        ctx.fillRect(0, 0, w, h)
+        canvases.forEach(c => {
+          try { ctx.drawImage(c, 0, 0, w, h) } catch { /* ignore empty canvas */ }
+        })
+        // Legenda no canto inferior esquerdo
+        const pad = 12, lh = 18
+        const boxH = pad * 2 + legenda.length * lh + 20
+        const boxW = 240
+        ctx.fillStyle = st.getPropertyValue('--card').trim() || 'rgba(255,255,255,0.85)'
+        ctx.fillRect(16, h - boxH - 16, boxW, boxH)
+        ctx.strokeStyle = st.getPropertyValue('--line').trim() || 'rgba(18,55,61,0.2)'
+        ctx.strokeRect(16, h - boxH - 16, boxW, boxH)
+        ctx.font = '12px "Instrument Sans", sans-serif'
+        const ink = st.getPropertyValue('--ink').trim() || '#12373d'
+        legenda.forEach((item, idx) => {
+          const yy = h - boxH - 16 + pad + idx * lh + 10
+          ctx.fillStyle = item.cor
+          ctx.beginPath()
+          ctx.arc(28, yy - 4, 4.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = ink
+          ctx.fillText(item.label, 40, yy)
+        })
+        ctx.font = '10px "JetBrains Mono", monospace'
+        ctx.fillStyle = st.getPropertyValue('--muted').trim() || '#4f6f73'
+        ctx.fillText('Evidência relacional; não mede mérito.', 24, h - 24)
+        const a = document.createElement('a')
+        a.href = out.toDataURL('image/png')
+        a.download = 'rede_imc.png'
+        a.click()
+      },
     })
 
     return () => {
@@ -178,6 +223,26 @@ export function NetworkView({
       s.kill()
     }
   }, [rede])
+
+  // Recalcula o layout apenas na visão egocêntrica e restaura as coordenadas originais ao sair dela
+  useEffect(() => {
+    const g = grafoRef.current, s = sg.current
+    if (!g || !s) return
+    if (visao === 'ego' && sel !== null) {
+      const pos = layoutEgocentrico(rede, filtrada.nosVisiveis, sel)
+      pos.forEach(([x, y], idx) => {
+        const k = String(idx)
+        if (g.hasNode(k)) { g.setNodeAttribute(k, 'x', x); g.setNodeAttribute(k, 'y', y) }
+      })
+      s.getCamera().animatedReset({ duration: 200 })
+    } else {
+      for (let i = 0; i < rede.nos.length; i++) {
+        const k = String(i), n = rede.nos[i]
+        if (g.hasNode(k)) { g.setNodeAttribute(k, 'x', n[3]); g.setNodeAttribute(k, 'y', n[4]) }
+      }
+    }
+    s.refresh()
+  }, [visao, sel, rede, filtrada.nosVisiveis])
 
   useEffect(() => { sg.current?.refresh() }, [w, wmax, gmaxVis, fmaxVis, filtrada, com, sel, modoCor, modoTamanho, grupoRealcado])
   return <div ref={el} className="canvas" aria-label="Grafo da rede de cooperação científica do IMC" />

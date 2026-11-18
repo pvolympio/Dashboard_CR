@@ -6,6 +6,7 @@ export type Pesos = { P: number; F: number; J: number }
 export type ModeloPeso = 'M1' | 'M2' | 'M3'
 export type ModoCor = 'comunidade' | 'area' | 'categoria'
 export type ModoTamanho = 'grau' | 'forca' | 'fixo'
+export type Visao = 'completa' | 'docentes' | 'ego'
 export interface Filtros { mat: boolean; comp: boolean; ext: boolean; percentil: number }
 
 export const PESOS_PADRAO: Pesos = { P: 0.5, F: 0.3, J: 0.2 }
@@ -115,8 +116,15 @@ export interface RedeFiltrada {
   limiarPeso: number
 }
 
-/** Aplica filtros de camada, percentil mínimo de peso e remove externos órfãos. */
-export function filtraRede(r: Rede, w: ArrayLike<number>, f: Filtros, afastados?: ReadonlySet<number>): RedeFiltrada {
+/** Aplica filtros de camada, visão, percentil mínimo de peso e remove externos órfãos. */
+export function filtraRede(
+  r: Rede,
+  w: ArrayLike<number>,
+  f: Filtros,
+  afastados?: ReadonlySet<number>,
+  visao: Visao = 'completa',
+  sel: number | null = null,
+): RedeFiltrada {
   const N = r.nos.length, E = r.arestas.length
   const camadaOk = new Uint8Array(N)
   const isDoc = new Uint8Array(N)
@@ -125,6 +133,7 @@ export function filtraRede(r: Rede, w: ArrayLike<number>, f: Filtros, afastados?
     const cam = r.camadas[r.nos[i][1]]
     const doc = cam !== 'Externo'
     if (doc) isDoc[i] = 1
+    if (visao === 'docentes' && !doc) continue
     if ((cam === 'Matemática' && f.mat) || (cam === 'Computação' && f.comp) || (cam === 'Externo' && f.ext)) {
       camadaOk[i] = 1
     }
@@ -137,6 +146,17 @@ export function filtraRede(r: Rede, w: ArrayLike<number>, f: Filtros, afastados?
     limiarPeso = ord[idx]
   }
 
+  const egoSet = visao === 'ego' && sel !== null && camadaOk[sel] ? new Set<number>([sel]) : null
+  if (egoSet && sel !== null) {
+    for (let k = 0; k < E; k++) {
+      const a = r.arestas[k], u = a[0], v = a[1]
+      if (!camadaOk[u] || !camadaOk[v]) continue
+      if (f.percentil > 0 && w[k] < limiarPeso) continue
+      if (u === sel) egoSet.add(v)
+      else if (v === sel) egoSet.add(u)
+    }
+  }
+
   const arestasVisiveis = new Uint8Array(E)
   const grauVisivel = new Uint32Array(N)
   const forcaVisivel = new Float64Array(N)
@@ -146,6 +166,7 @@ export function filtraRede(r: Rede, w: ArrayLike<number>, f: Filtros, afastados?
     const a = r.arestas[k], u = a[0], v = a[1]
     if (!camadaOk[u] || !camadaOk[v]) continue
     if (f.percentil > 0 && w[k] < limiarPeso) continue
+    if (egoSet && (!egoSet.has(u) || !egoSet.has(v))) continue
     arestasVisiveis[k] = 1
     contArestas++
     grauVisivel[u]++
@@ -158,6 +179,7 @@ export function filtraRede(r: Rede, w: ArrayLike<number>, f: Filtros, afastados?
   let contNos = 0, contDocentes = 0
   for (let i = 0; i < N; i++) {
     if (!camadaOk[i]) continue
+    if (egoSet && !egoSet.has(i)) continue
     if (!isDoc[i] && grauVisivel[i] === 0) continue
     nosVisiveis[i] = 1
     contNos++
@@ -172,6 +194,40 @@ export function filtraRede(r: Rede, w: ArrayLike<number>, f: Filtros, afastados?
     contagens: { nos: contNos, docentes: contDocentes, arestas: contArestas },
     limiarPeso,
   }
+}
+
+/** Calcula posições radiais para a visão egocêntrica centrada no nó `sel`. */
+export function layoutEgocentrico(r: Rede, nosVisiveis: Uint8Array, sel: number): Map<number, [number, number]> {
+  const pos = new Map<number, [number, number]>()
+  pos.set(sel, [0, 0])
+  const docs: number[] = []
+  const exts: number[] = []
+  for (let i = 0; i < r.nos.length; i++) {
+    if (i === sel || !nosVisiveis[i]) continue
+    if (ehDocente(r, i)) docs.push(i)
+    else exts.push(i)
+  }
+  docs.forEach((id, idx) => {
+    const ang = (2 * Math.PI * idx) / Math.max(1, docs.length)
+    pos.set(id, [0.45 * Math.cos(ang), 0.45 * Math.sin(ang)])
+  })
+  exts.forEach((id, idx) => {
+    const ang = (2 * Math.PI * idx) / Math.max(1, exts.length)
+    pos.set(id, [0.9 * Math.cos(ang), 0.9 * Math.sin(ang)])
+  })
+  return pos
+}
+
+/** Exporta a lista de docentes com sua comunidade (somente códigos, sem nomes). */
+export function exportaComunidadesCSV(r: Rede, com: Comunidades): string {
+  const linhas = ['docente,area,comunidade']
+  const docs: { codigo: string; area: string; grupo: number }[] = []
+  com.particao.forEach((g, idx) => {
+    docs.push({ codigo: r.nos[idx][0], area: r.camadas[r.nos[idx][1]], grupo: g + 1 })
+  })
+  docs.sort((a, b) => a.codigo.localeCompare(b.codigo))
+  for (const d of docs) linhas.push(`${d.codigo},${d.area},${d.grupo}`)
+  return linhas.join('\n')
 }
 
 export interface DetalhesNo {

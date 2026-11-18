@@ -6,7 +6,9 @@ import {
   comunidades,
   detalhesNo,
   ehDocente,
+  exportaComunidadesCSV,
   filtraRede,
+  layoutEgocentrico,
   normaliza,
   PESOS_PADRAO,
   type Rede,
@@ -63,6 +65,18 @@ describe('Filtros e detalhes', () => {
       expect(d.vinculos[i - 1].peso).toBeGreaterThanOrEqual(d.vinculos[i].peso)
     }
   })
+
+  it('visão só docentes mostra apenas os 48 docentes e layout egocêntrico centraliza o nó', () => {
+    const fDoc = filtraRede(rede, w, { mat: true, comp: true, ext: true, percentil: 0 }, undefined, 'docentes')
+    expect(fDoc.contagens.nos).toBe(48)
+    expect(fDoc.contagens.docentes).toBe(48)
+
+    const idxD18 = rede.nos.findIndex(n => n[0] === 'D18')
+    const fEgo = filtraRede(rede, w, { mat: true, comp: true, ext: true, percentil: 0 }, undefined, 'ego', idxD18)
+    const pos = layoutEgocentrico(rede, fEgo.nosVisiveis, idxD18)
+    expect(pos.get(idxD18)).toEqual([0, 0])
+    expect(pos.size).toBe(fEgo.contagens.nos)
+  })
 })
 
 describe('Louvain', () => {
@@ -72,4 +86,11 @@ describe('Louvain', () => {
     expect([...c.particao.keys()].every(i => ehDocente(rede, i))).toBe(true)
   })
   it('chega perto da modularidade de referência do Python (0,585)', () => expect(Math.abs(c.Q - 0.585)).toBeLessThan(0.05))
+  it('exporta CSV de comunidades somente com códigos de docentes', () => {
+    const csv = exportaComunidadesCSV(rede, c)
+    const linhas = csv.split('\n')
+    expect(linhas[0]).toBe('docente,area,comunidade')
+    expect(linhas.length).toBe(49)
+    expect(linhas[1]).toMatch(/^D\d{2},/)
+  })
 })
