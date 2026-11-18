@@ -1,9 +1,19 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Graph from 'graphology'
 import Sigma from 'sigma'
 import { ehDocente, layoutEgocentrico, type Comunidades, type Rede, type RedeFiltrada } from './lib/rede'
-import { AREA_CORES, CATEGORIA_CORES, PALETA } from './lib/rotulos'
+import { AREA_CORES, CATEGORIA_CORES, CATEGORIA_NOMES, PALETA } from './lib/rotulos'
 import { useStore } from './store'
+
+interface HoverInfo {
+  codigo: string
+  subtitulo: string
+  grau: number
+  forca: number
+  grupo: number | null
+  x: number
+  y: number
+}
 
 export interface CameraCtrl {
   zoomIn: () => void
@@ -50,6 +60,7 @@ export function NetworkView({
   const sg = useRef<Sigma | null>(null)
   const grafoRef = useRef<Graph | null>(null)
   const coresRef = useRef<CoresTema>(leCores())
+  const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null)
   const { sel, modoCor, modoTamanho, grupoRealcado, visao } = useStore()
 
   const { wmax, gmaxVis, fmaxVis } = useMemo(() => {
@@ -219,16 +230,39 @@ export function NetworkView({
       }
       hoverViz = vizSet
       if (el.current) el.current.style.cursor = 'pointer'
+      const dd = s.getNodeDisplayData(node)
+      if (dd && el.current) {
+        const vp = s.framedGraphToViewport({ x: dd.x, y: dd.y })
+        const n = rede.nos[id]
+        const doc = isDoc[id] === 1
+        const cw = el.current.clientWidth || 800
+        setHoverInfo({
+          codigo: n[0],
+          subtitulo: doc ? `Docente · ${rede.camadas[n[1]]}` : (CATEGORIA_NOMES[rede.categorias[n[2]]] ?? 'Externo'),
+          grau: L.filtrada.grauVisivel[id],
+          forca: L.filtrada.forcaVisivel[id],
+          grupo: doc ? (L.com.particao.get(id) ?? null) : null,
+          x: Math.min(Math.max(12, vp.x + 14), Math.max(12, cw - 210)),
+          y: Math.max(12, vp.y - 18),
+        })
+      }
       s.refresh()
     })
     s.on('leaveNode', () => {
       hoverId = null
       hoverViz = null
+      setHoverInfo(null)
       if (el.current) el.current.style.cursor = 'default'
       s.refresh()
     })
-    s.on('clickNode', ({ node }) => useStore.getState().seleciona(+node))
-    s.on('clickStage', () => useStore.getState().seleciona(null))
+    s.on('clickNode', ({ node }) => {
+      setHoverInfo(null)
+      useStore.getState().seleciona(+node)
+    })
+    s.on('clickStage', () => {
+      setHoverInfo(null)
+      useStore.getState().seleciona(null)
+    })
 
     const ro = new ResizeObserver(() => {
       s.resize()
@@ -345,5 +379,21 @@ export function NetworkView({
     live.current = { w, wmax, gmaxVis, fmaxVis, filtrada, com, sel, viz, modoCor, modoTamanho, grupoRealcado }
     sg.current?.refresh()
   }, [w, wmax, gmaxVis, fmaxVis, filtrada, com, sel, viz, modoCor, modoTamanho, grupoRealcado])
-  return <div ref={el} className="canvas" aria-label="Grafo da rede de cooperação científica do IMC" />
+  return (
+    <div ref={el} className="canvas" aria-label="Grafo da rede de cooperação científica do IMC">
+      {hoverInfo && (
+        <div className="node-tip" style={{ left: hoverInfo.x, top: hoverInfo.y }} role="status">
+          <div className="tip-head">
+            <strong>{hoverInfo.codigo}</strong>
+            {hoverInfo.grupo !== null && <span>Grupo {hoverInfo.grupo + 1}</span>}
+          </div>
+          <div className="tip-sub">{hoverInfo.subtitulo}</div>
+          <div className="tip-meta">
+            <span>Grau: <b>{hoverInfo.grau}</b></span>
+            <span>Força: <b>{hoverInfo.forca.toFixed(2).replace('.', ',')}</b></span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }

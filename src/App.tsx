@@ -48,7 +48,6 @@ export default function App() {
     sel,
     grupoRealcado,
     afastados,
-    simAberto,
     setModelo,
     setPeso,
     setResolucao,
@@ -452,6 +451,7 @@ export default function App() {
       )}
 
       {!apresentacao && (
+        <div className="right-col">
         <section
           className="card res"
           data-mob-open={painelMobile === 'res' ? 'true' : undefined}
@@ -528,9 +528,8 @@ export default function App() {
             )}
           </div>
         </section>
-      )}
 
-      {!apresentacao && redeInst && (
+      {redeInst && (
         <section className="card insp" aria-label="Visão agregada por instituto">
           <div className="kick">Visão por instituto (clique para expandir)</div>
           <div className="groups" style={{ marginTop: 8 }}>
@@ -563,7 +562,7 @@ export default function App() {
         </section>
       )}
 
-      {!apresentacao && det && !redeInst && (
+      {det && !redeInst && (
         <section className="card insp" aria-label={`Detalhes de ${det.codigo}`}>
           <div className="insp-head">
             <div>
@@ -645,32 +644,36 @@ export default function App() {
           )}
         </section>
       )}
-
-      {!apresentacao && (
-        <div className={`hud-bot ${simAberto ? 'sim-up' : ''}`}>
-          <div className="card legend" aria-label="Legenda de cores">
-            {legendaAtual.map((item) => (
-              <span key={item.label}>
-                <i style={{ background: item.cor }} />
-                {item.label}
-              </span>
-            ))}
-          </div>
-          <div className="card zoom-bar" role="group" aria-label="Controles de zoom">
-            <button type="button" aria-label="Aumentar zoom" onClick={() => camRef.current?.zoomIn()}>
-              +
-            </button>
-            <button type="button" aria-label="Diminuir zoom" onClick={() => camRef.current?.zoomOut()}>
-              −
-            </button>
-            <button type="button" aria-label="Reiniciar enquadramento" onClick={() => camRef.current?.reset()}>
-              ↺
-            </button>
-          </div>
         </div>
       )}
 
-      {!apresentacao && <SimuladorPanel rede={rede} w={w} refAleat={refAleat} mobOpen={painelMobile === 'sim'} />}
+      {!apresentacao && (
+        <div className="center-bot">
+          <div className="hud-bot">
+            <div className="card legend" aria-label="Legenda de cores">
+              {legendaAtual.map((item) => (
+                <span key={item.label}>
+                  <i style={{ background: item.cor }} />
+                  {item.label}
+                </span>
+              ))}
+            </div>
+            <div className="card zoom-bar" role="group" aria-label="Controles de zoom">
+              <button type="button" aria-label="Aumentar zoom" onClick={() => camRef.current?.zoomIn()}>
+                +
+              </button>
+              <button type="button" aria-label="Diminuir zoom" onClick={() => camRef.current?.zoomOut()}>
+                −
+              </button>
+              <button type="button" aria-label="Reiniciar enquadramento" onClick={() => camRef.current?.reset()}>
+                ↺
+              </button>
+            </div>
+          </div>
+
+          <SimuladorPanel rede={rede} w={w} refAleat={refAleat} mobOpen={painelMobile === 'sim'} />
+        </div>
+      )}
 
       {!apresentacao && (
         <nav className="card mob-nav" aria-label="Painéis móveis">
