@@ -91,7 +91,7 @@ export default function App() {
     () => (rede ? filtraRede(rede, w, filtros, afastadosSet, visao, sel) : null),
     [rede, w, filtros, afastadosSet, visao, sel],
   )
-  const { com } = useLouvain(rede, w, resolucao)
+  const { com, calculando } = useLouvain(rede, w, resolucao)
 
   const membrosPorGrupo = useMemo(() => {
     if (!rede || !com) return [] as string[][]
@@ -269,10 +269,18 @@ export default function App() {
 
       {!apresentacao && (
       <section className="card res" aria-label="Comunidades entre docentes">
-        <div className="kick">Comunidades entre docentes</div>
+        <div className="kick">
+          Comunidades entre docentes {calculando && <span className="muted-tag">· calculando…</span>}
+        </div>
         <div className="kp" aria-live="polite">
           <div><b>{fmtDec(com.Q, 3)}</b><small>modularidade Q</small></div>
-          <div><b>{gruposCount}</b><small>grupos (≥ 2 docentes)</small></div>
+          <div><b>{gruposCount}</b><small>grupos (≥ 2)</small></div>
+          <div>
+            <b>{fmtDec(com.nmi, 3)}</b>
+            <small title="Informação Mútua Normalizada média entre as 20 execuções do Louvain (0 a 1). Valores próximos de 1 indicam comunidades estáveis.">
+              NMI médio <abbr title="Informação Mútua Normalizada média entre as 20 execuções do Louvain (0 a 1). Valores próximos de 1 indicam comunidades estáveis.">?</abbr>
+            </small>
+          </div>
         </div>
         <div className="groups">
           {com.tamanhos.map((n, i) => n > 1 && (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { Rede } from '../lib/rede'
 import {
   exportaSimulacaoCSV,
@@ -10,6 +10,7 @@ import {
   type MetricasSimulacao,
   type ReferenciaAleatoria,
 } from '../lib/simulacao'
+import type { SimWorkerRequest, SimWorkerResponse } from '../workers/simulacao.worker'
 import { useStore } from '../store'
 
 const CENARIOS: { id: Cenario; label: string }[] = [
@@ -111,18 +112,63 @@ export function SimuladorPanel({
     toggleSim, afastaDocente, reintegraDocente, limpaSimulacao, setCenarioAtivo, setAnimando,
   } = useStore()
 
+  const workerRef = useRef<Worker | null>(null)
+  const simReqRef = useRef(0)
+
   useEffect(() => {
-    if (!animando || !cenarioAtivo) return
-    const timer = window.setInterval(() => {
+    if (typeof Worker === 'undefined') return
+    const worker = new Worker(new URL('../workers/simulacao.worker.ts', import.meta.url), { type: 'module' })
+    workerRef.current = worker
+    const initMsg: SimWorkerRequest = { type: 'init', rede }
+    worker.postMessage(initMsg)
+    return () => {
+      worker.terminate()
+      workerRef.current = null
+    }
+  }, [rede])
+
+  useEffect(() => {
+    if (!animando || !cenarioAtivo) {
+      simReqRef.current++
+      return
+    }
+    const worker = workerRef.current
+    if (!worker) {
+      const timer = window.setInterval(() => {
+        const atual = useStore.getState().afastados
+        const prox = proximoAfastamento(rede, new Set(atual), cenarioAtivo)
+        if (prox === null) setAnimando(false)
+        else afastaDocente(prox)
+      }, 260)
+      return () => window.clearInterval(timer)
+    }
+
+    let cancelado = false
+    let timer: number | null = null
+    const agendaPasso = () => {
+      if (cancelado) return
+      const id = ++simReqRef.current
       const atual = useStore.getState().afastados
-      const prox = proximoAfastamento(rede, new Set(atual), cenarioAtivo)
-      if (prox === null) {
+      const req: SimWorkerRequest = { type: 'next', id, afastados: atual, cenario: cenarioAtivo }
+      worker.postMessage(req)
+    }
+
+    worker.onmessage = (e: MessageEvent<SimWorkerResponse>) => {
+      if (cancelado || e.data.id !== simReqRef.current) return
+      if (e.data.prox === null) {
         setAnimando(false)
         return
       }
-      afastaDocente(prox)
-    }, 260)
-    return () => window.clearInterval(timer)
+      afastaDocente(e.data.prox)
+      timer = window.setTimeout(agendaPasso, 260)
+    }
+
+    agendaPasso()
+    return () => {
+      cancelado = true
+      simReqRef.current++
+      if (timer !== null) window.clearTimeout(timer)
+    }
   }, [animando, cenarioAtivo, rede, afastaDocente, setAnimando])
 
   const serie = useMemo(() => serieSimulacao(rede, w, afastados), [rede, w, afastados])

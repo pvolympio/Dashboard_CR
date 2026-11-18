@@ -56,8 +56,35 @@ export function calculaM2(r: Rede, p: Pesos): Float64Array {
 
 const mulberry32 = (s: number) => () => { s |= 0; s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
 
-export interface Comunidades { particao: Map<number, number>; Q: number; tamanhos: number[] }
+export interface Comunidades { particao: Map<number, number>; Q: number; tamanhos: number[]; nmi: number }
 export interface SubgrafoDocentes { nos: string[]; arestas: [string, string, number][] }
+
+/** Informação Mútua Normalizada (NMI) entre duas partições sobre o mesmo conjunto de chaves. */
+export function calculaNMI(a: Record<string, number>, b: Record<string, number>): number {
+  const chaves = Object.keys(a)
+  const N = chaves.length
+  if (N === 0) return 1
+  const contA = new Map<number, number>()
+  const contB = new Map<number, number>()
+  const par = new Map<string, number>()
+  for (let i = 0; i < N; i++) {
+    const k = chaves[i], ca = a[k], cb = b[k]
+    contA.set(ca, (contA.get(ca) ?? 0) + 1)
+    contB.set(cb, (contB.get(cb) ?? 0) + 1)
+    const pk = `${ca}:${cb}`
+    par.set(pk, (par.get(pk) ?? 0) + 1)
+  }
+  let ha = 0, hb = 0, mi = 0
+  contA.forEach(c => { const p = c / N; ha -= p * Math.log(p) })
+  contB.forEach(c => { const p = c / N; hb -= p * Math.log(p) })
+  if (ha + hb === 0) return 1
+  par.forEach((nij, pk) => {
+    const [ca, cb] = pk.split(':').map(Number)
+    const na = contA.get(ca)!, nb = contB.get(cb)!
+    mi += (nij / N) * Math.log((N * nij) / (na * nb))
+  })
+  return (2 * mi) / (ha + hb)
+}
 
 /** Pré-filtra nós e arestas entre docentes para evitar varrer colaboradores externos a cada execução. */
 export function preparaSubgrafoDocentes(r: Rede): SubgrafoDocentes {
@@ -83,14 +110,27 @@ export function comunidadesSubgrafo(sub: SubgrafoDocentes, w: ArrayLike<number>,
     if (w[k] > 0) g.addEdge(u, v, { weight: w[k] })
   }
   let melhor: { c: Record<string, number>; Q: number } | null = null
+  const execs: Record<string, number>[] = []
   for (let s = 0; s < execucoes; s++) {
     const d = louvain.detailed(g, { getEdgeWeight: 'weight', resolution: resolucao, rng: mulberry32(s) })
+    execs.push(d.communities)
     if (!melhor || d.modularity > melhor.Q) melhor = { c: d.communities, Q: d.modularity }
+  }
+  let nmi = 1
+  if (execs.length > 1) {
+    let soma = 0, pares = 0
+    for (let i = 0; i < execs.length; i++) {
+      for (let j = i + 1; j < execs.length; j++) {
+        soma += calculaNMI(execs[i], execs[j])
+        pares++
+      }
+    }
+    nmi = pares > 0 ? soma / pares : 1
   }
   const part = new Map<number, number>(Object.entries(melhor!.c).map(([k, v]) => [+k, v]))
   const cont = new Map<number, number>(); part.forEach(c => cont.set(c, (cont.get(c) ?? 0) + 1))
   const ordem = [...cont.entries()].sort((a, b) => b[1] - a[1]); const remap = new Map(ordem.map(([c], i) => [c, i]))
-  return { particao: new Map([...part].map(([k, c]) => [k, remap.get(c)!])), Q: melhor!.Q, tamanhos: ordem.map(([, n]) => n) }
+  return { particao: new Map([...part].map(([k, c]) => [k, remap.get(c)!])), Q: melhor!.Q, tamanhos: ordem.map(([, n]) => n), nmi }
 }
 
 /** Louvain na rede entre docentes ponderada por w; melhor modularidade em `execucoes` sementes (20 no artigo). */

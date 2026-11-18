@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import {
   calculaM2,
+  calculaNMI,
   calculaPesos,
   comunidades,
   detalhesNo,
@@ -11,8 +12,10 @@ import {
   layoutEgocentrico,
   normaliza,
   PESOS_PADRAO,
+  preparaSubgrafoDocentes,
   type Rede,
 } from './rede'
+import { criaHandlerLouvain } from '../workers/louvainHandler'
 
 const rede: Rede = JSON.parse(readFileSync('public/rede.json', 'utf-8'))
 
@@ -92,5 +95,20 @@ describe('Louvain', () => {
     expect(linhas[0]).toBe('docente,area,comunidade')
     expect(linhas.length).toBe(49)
     expect(linhas[1]).toMatch(/^D\d{2},/)
+  })
+  it('calcula NMI médio entre execuções e produz resultado idêntico no worker', () => {
+    expect(calculaNMI({ a: 0, b: 0, c: 1 }, { a: 1, b: 1, c: 0 })).toBeCloseTo(1, 12)
+    expect(c.nmi).toBeGreaterThan(0.5)
+    expect(c.nmi).toBeLessThanOrEqual(1)
+
+    const w = calculaM2(rede, PESOS_PADRAO)
+    const handle = criaHandlerLouvain()
+    handle({ type: 'init', sub: preparaSubgrafoDocentes(rede) })
+    const res = handle({ type: 'run', id: 1, w, resolucao: 1 })
+    expect(res).not.toBeNull()
+    expect(res!.com.Q).toBe(c.Q)
+    expect(res!.com.nmi).toBe(c.nmi)
+    expect(res!.com.tamanhos).toEqual(c.tamanhos)
+    expect([...res!.com.particao.entries()]).toEqual([...c.particao.entries()])
   })
 })
