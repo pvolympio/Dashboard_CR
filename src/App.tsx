@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { NetworkView, type CameraCtrl } from './NetworkView'
+import { SimuladorPanel } from './components/SimuladorPanel'
 import { calculaPesos, detalhesNo, filtraRede, type ModeloPeso, type ModoCor, type ModoTamanho, type Rede } from './lib/rede'
 import { AREA_CORES, CATEGORIA_CORES, CATEGORIA_NOMES, PALETA, TIPO_NOMES } from './lib/rotulos'
+import type { ReferenciaAleatoria } from './lib/simulacao'
 import { useLouvain } from './lib/useLouvain'
 import { useStore } from './store'
 
@@ -11,6 +13,7 @@ const fmtDec = (n: number, d = 2) => n.toFixed(d).replace('.', ',')
 
 export default function App() {
   const [rede, setRede] = useState<Rede | null>(null)
+  const [refAleat, setRefAleat] = useState<ReferenciaAleatoria | null>(null)
   const [erro, setErro] = useState('')
   const [busca, setBusca] = useState('')
   const [buscaErro, setBuscaErro] = useState('')
@@ -18,8 +21,9 @@ export default function App() {
   const camRef = useRef<CameraCtrl | null>(null)
 
   const {
-    modelo, pesos, resolucao, modoCor, modoTamanho, filtros, sel, grupoRealcado,
-    setModelo, setPeso, setResolucao, setModoCor, setModoTamanho, setFiltro, seleciona, realcaGrupo, reinicia,
+    modelo, pesos, resolucao, modoCor, modoTamanho, filtros, sel, grupoRealcado, afastados, simAberto,
+    setModelo, setPeso, setResolucao, setModoCor, setModoTamanho, setFiltro, seleciona, realcaGrupo,
+    afastaDocente, toggleSim, reinicia,
   } = useStore()
 
   useEffect(() => {
@@ -28,6 +32,10 @@ export default function App() {
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
       .then(setRede)
       .catch(e => { if (e.name !== 'AbortError') setErro(String(e)) })
+    fetch(`${import.meta.env.BASE_URL}referencia_aleatoria.json`, { signal: ac.signal })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d) setRefAleat(d) })
+      .catch(() => {})
     return () => ac.abort()
   }, [])
 
@@ -48,7 +56,8 @@ export default function App() {
   }, [seleciona])
 
   const w = useMemo(() => (rede ? calculaPesos(rede, modelo, pesos) : new Float64Array()), [rede, modelo, pesos])
-  const filtrada = useMemo(() => (rede ? filtraRede(rede, w, filtros) : null), [rede, w, filtros])
+  const afastadosSet = useMemo(() => new Set(afastados), [afastados])
+  const filtrada = useMemo(() => (rede ? filtraRede(rede, w, filtros, afastadosSet) : null), [rede, w, filtros, afastadosSet])
   const { com } = useLouvain(rede, w, resolucao)
 
   const membrosPorGrupo = useMemo(() => {
@@ -225,6 +234,15 @@ export default function App() {
             <div><small>Força</small><b>{fmtDec(det.forca, 2)}</b></div>
             {det.comunidade !== null && <div><small>Comunidade</small><b>Grupo {det.comunidade + 1}</b></div>}
           </div>
+          {det.ehDoc && (
+            <button
+              type="button"
+              className="btn-af"
+              onClick={() => { afastaDocente(det.idx); toggleSim(true) }}
+            >
+              Afastar na simulação
+            </button>
+          )}
           {det.porTipo.some(t => t.total > 0) && (
             <div className="insp-sec">
               <div className="kick">Cooperações por tipo</div>
@@ -254,7 +272,7 @@ export default function App() {
         </section>
       )}
 
-      <div className="hud-bot">
+      <div className={`hud-bot ${simAberto ? 'sim-up' : ''}`}>
         <div className="card legend" aria-label="Legenda de cores">
           {modoCor === 'area' && (
             <>
@@ -279,6 +297,8 @@ export default function App() {
           <button type="button" aria-label="Reiniciar enquadramento" onClick={() => camRef.current?.reset()}>↺</button>
         </div>
       </div>
+
+      <SimuladorPanel rede={rede} w={w} refAleat={refAleat} />
 
       <p className="note">Evidência relacional; não mede mérito nem desempenho.</p>
     </div>
