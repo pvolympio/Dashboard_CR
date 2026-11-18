@@ -1,16 +1,16 @@
 export const PALETA = [
   '#3ea3af',
-  '#ff1d44',
-  '#12373d',
-  '#c5cf7a',
+  '#ff3b5c',
+  '#d9b13b',
   '#8fcdd4',
   '#e07a8b',
-  '#6b8e3a',
+  '#84b84c',
   '#f0a35e',
-  '#7f6fb3',
-  '#2a6f7a',
-  '#d9b13b',
-  '#a6a6a6',
+  '#9b8ce8',
+  '#2a8c99',
+  '#c5cf7a',
+  '#e86f52',
+  '#a6b8b6',
 ]
 
 export const AREA_CORES: Record<string, string> = {
@@ -29,11 +29,11 @@ export const CATEGORIA_NOMES: Record<string, string> = {
 }
 
 export const CATEGORIA_CORES: Record<string, string> = {
-  docente_imc: '#12373d',
-  docente_outro_instituto: '#3ea3af',
-  outro_vinculo_unifei: '#6b8e3a',
+  docente_imc: '#3ea3af',
+  docente_outro_instituto: '#d9b13b',
+  outro_vinculo_unifei: '#84b84c',
   nacional: '#f0a35e',
-  estrangeira: '#ff1d44',
+  estrangeira: '#ff3b5c',
   nao_identificado: '#9fb4b1',
 }
 

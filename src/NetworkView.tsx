@@ -16,6 +16,8 @@ export interface CameraCtrl {
 interface CoresTema {
   ink: string
   edge: string
+  edgeExt: string
+  extDot: string
   sel: string
   dim: string
 }
@@ -24,6 +26,8 @@ const leCores = (): CoresTema => {
   return {
     ink: st.getPropertyValue('--ink').trim(),
     edge: st.getPropertyValue('--edge').trim(),
+    edgeExt: st.getPropertyValue('--edge-ext').trim(),
+    extDot: st.getPropertyValue('--ext-dot').trim(),
     sel: st.getPropertyValue('--sel').trim(),
     dim: st.getPropertyValue('--dim').trim(),
   }
@@ -85,6 +89,7 @@ export function NetworkView({
     const g = new Graph({ type: 'undirected' })
 
     const isDoc = new Uint8Array(N)
+    const isEdgeDD = new Uint8Array(E)
     const areaColors = new Array<string>(N)
     const catColors = new Array<string>(N)
     const labels = new Array<string>(N)
@@ -96,20 +101,29 @@ export function NetworkView({
       areaColors[i] = doc ? (AREA_CORES[rede.camadas[n[1]]] ?? AREA_CORES.Externo) : AREA_CORES.Externo
       catColors[i] = CATEGORIA_CORES[rede.categorias[n[2]]] ?? AREA_CORES.Externo
       labels[i] = doc ? n[0] : ''
-      g.addNode(String(i), { x: n[3], y: n[4], size: 2, label: '' })
+      g.addNode(String(i), { x: n[3], y: n[4], size: 2, label: '', zIndex: doc ? 2 : 0 })
     }
     for (let k = 0; k < E; k++) {
       const a = rede.arestas[k]
+      if (isDoc[a[0]] && isDoc[a[1]]) isEdgeDD[k] = 1
       g.addEdgeWithKey(String(k), String(a[0]), String(a[1]), { size: 0.5 })
     }
     grafoRef.current = g
     coresRef.current = leCores()
 
+    let hoverId: number | null = null
+    let hoverViz: Set<number> | null = null
+
     const s = new Sigma(g, el.current!, {
       allowInvalidContainer: true,
       renderEdgeLabels: false,
+      zIndex: true,
       labelFont: 'JetBrains Mono, monospace',
+      labelWeight: '500',
       labelSize: 11,
+      labelDensity: 0.45,
+      labelGridCellSize: 90,
+      labelRenderedSizeThreshold: 5,
       labelColor: { color: coresRef.current.ink },
       minCameraRatio: 0.03,
       maxCameraRatio: 4,
@@ -119,31 +133,50 @@ export function NetworkView({
           C = coresRef.current
         if (!L.filtrada.nosVisiveis[i]) return { ...d, hidden: true }
         const doc = isDoc[i] === 1
-        let color = AREA_CORES.Externo
-        if (L.modoCor === 'categoria') color = catColors[i]
+        const foco = L.sel ?? hoverId
+        const focoViz = L.sel !== null ? L.viz : hoverViz
+
+        let color = C.extDot
+        if (L.modoCor === 'categoria') color = doc || foco !== null ? catColors[i] : C.extDot
         else if (doc)
           color = L.modoCor === 'comunidade' ? PALETA[(L.com.particao.get(i) ?? 0) % PALETA.length] : areaColors[i]
 
         let label = labels[i]
-        if (L.sel !== null && i !== L.sel && !L.viz?.has(i)) {
-          color = C.dim
-          label = ''
-        } else if (L.sel === null && L.grupoRealcado !== null) {
+        let zIndex = doc ? 2 : 0
+
+        if (foco !== null) {
+          if (i === foco || focoViz?.has(i)) {
+            if (!doc) {
+              color = L.modoCor === 'categoria' ? catColors[i] : AREA_CORES.Externo
+              label = rede.nos[i][0]
+            }
+            zIndex = i === foco ? 4 : 3
+          } else {
+            color = C.dim
+            label = ''
+            zIndex = 0
+          }
+        } else if (L.grupoRealcado !== null) {
           const emGrupo = doc && L.com.particao.get(i) === L.grupoRealcado
           if (!emGrupo) {
             color = C.dim
             label = ''
+            zIndex = 0
+          } else {
+            zIndex = 3
           }
         }
 
-        let size = doc ? 6 : 2.2
+        let size = doc ? 6 : 1.35
         if (L.modoTamanho === 'grau') {
-          size = doc ? 5 + 11 * Math.sqrt(L.filtrada.grauVisivel[i] / L.gmaxVis) : 1.8
+          size = doc ? 5 + 10 * Math.sqrt(L.filtrada.grauVisivel[i] / L.gmaxVis) : 1.35
         } else if (L.modoTamanho === 'forca') {
-          size = doc ? 5 + 11 * Math.sqrt(L.filtrada.forcaVisivel[i] / L.fmaxVis) : 1.8
+          size = doc ? 5 + 10 * Math.sqrt(L.filtrada.forcaVisivel[i] / L.fmaxVis) : 1.35
         }
+        if (foco !== null && !doc && focoViz?.has(i)) size = 3.2
+        if (i === foco) size = Math.max(size, 9)
 
-        return { ...d, hidden: false, color, label, forceLabel: i === L.sel, size }
+        return { ...d, hidden: false, color, label, forceLabel: i === foco, size, zIndex }
       },
       edgeReducer: (k, d) => {
         const idx = +k,
@@ -151,23 +184,49 @@ export function NetworkView({
           C = coresRef.current
         if (!L.filtrada.arestasVisiveis[idx]) return { ...d, hidden: true }
         const a = rede.arestas[idx]
-        const size = 0.3 + 1.7 * (L.w[idx] / L.wmax)
-        if (L.sel !== null) {
-          return a[0] === L.sel || a[1] === L.sel
-            ? { ...d, hidden: false, size: size + 0.6, color: C.sel }
-            : { ...d, hidden: false, size, color: C.dim }
+        const dd = isEdgeDD[idx] === 1
+        const foco = L.sel ?? hoverId
+        const ratio = L.w[idx] / L.wmax
+        const size = dd ? 0.5 + 1.8 * ratio : 0.25 + 0.9 * ratio
+
+        if (foco !== null) {
+          if (a[0] === foco || a[1] === foco) {
+            return { ...d, hidden: false, size: size + 0.8, color: C.sel }
+          }
+          return { ...d, hidden: true }
         }
         if (L.grupoRealcado !== null) {
           const g0 = L.com.particao.get(a[0]),
             g1 = L.com.particao.get(a[1])
           return g0 === L.grupoRealcado && g1 === L.grupoRealcado
-            ? { ...d, hidden: false, size: size + 0.5, color: C.sel }
+            ? { ...d, hidden: false, size: size + 0.6, color: C.sel }
             : { ...d, hidden: false, size, color: C.dim }
         }
-        return { ...d, hidden: false, size, color: C.edge }
+        return { ...d, hidden: false, size, color: dd ? C.edge : C.edgeExt }
       },
     })
 
+    s.on('enterNode', ({ node }) => {
+      const id = +node
+      hoverId = id
+      const vizSet = new Set<number>()
+      const L = live.current
+      for (let k = 0; k < E; k++) {
+        if (!L.filtrada.arestasVisiveis[k]) continue
+        const a = rede.arestas[k]
+        if (a[0] === id) vizSet.add(a[1])
+        else if (a[1] === id) vizSet.add(a[0])
+      }
+      hoverViz = vizSet
+      if (el.current) el.current.style.cursor = 'pointer'
+      s.refresh()
+    })
+    s.on('leaveNode', () => {
+      hoverId = null
+      hoverViz = null
+      if (el.current) el.current.style.cursor = 'default'
+      s.refresh()
+    })
     s.on('clickNode', ({ node }) => useStore.getState().seleciona(+node))
     s.on('clickStage', () => useStore.getState().seleciona(null))
 
