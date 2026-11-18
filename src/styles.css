@@ -293,18 +293,25 @@ input[type='range'] {
   gap: 3px;
 }
 .seg button {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   border: 0;
   background: transparent;
   color: var(--muted);
-  padding: 5px 4px;
+  padding: 5px 6px;
   border-radius: 8px;
-  font: 500 12px inherit;
+  font: 500 11.5px inherit;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+.seg button:not(.on):hover {
+  background: var(--dim);
+  color: var(--ink);
 }
 .seg button.on {
   background: var(--card);
@@ -406,9 +413,14 @@ input[type='range'] {
   gap: 8px;
   border: 0;
   background: transparent;
-  padding: 4px 0;
+  padding: 4px 6px;
+  border-radius: 8px;
   cursor: pointer;
   text-align: left;
+  transition: background-color 0.15s ease;
+}
+.row-btn:hover {
+  background: var(--dim);
 }
 .row-btn i {
   width: 10px;
@@ -459,6 +471,13 @@ input[type='range'] {
   cursor: pointer;
   font-size: 18px;
   line-height: 1;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.btn-icon:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .code {
   font:
