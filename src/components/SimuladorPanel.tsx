@@ -32,15 +32,15 @@ function baixaTexto(nome: string, conteudo: string, tipo = 'text/csv;charset=utf
   URL.revokeObjectURL(url)
 }
 
-function GraficoCurvas({
-  serie,
-  refAleat,
-}: {
-  serie: MetricasSimulacao[]
-  refAleat: ReferenciaAleatoria | null
-}) {
-  const W = 420, H = 148, PL = 34, PR = 12, PT = 10, PB = 22
-  const iw = W - PL - PR, ih = H - PT - PB
+function GraficoCurvas({ serie, refAleat }: { serie: MetricasSimulacao[]; refAleat: ReferenciaAleatoria | null }) {
+  const W = 420,
+    H = 148,
+    PL = 34,
+    PR = 12,
+    PT = 10,
+    PB = 22
+  const iw = W - PL - PR,
+    ih = H - PT - PB
   const x = (k: number) => PL + (k / 48) * iw
   const y = (v: number) => PT + (1 - Math.max(0, Math.min(1, v))) * ih
 
@@ -49,7 +49,10 @@ function GraficoCurvas({
 
   const banda = (low: number[], high: number[]) => {
     const top = high.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
-    const bot = [...low].reverse().map((v, i) => `L${x(low.length - 1 - i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
+    const bot = [...low]
+      .reverse()
+      .map((v, i) => `L${x(low.length - 1 - i).toFixed(1)},${y(v).toFixed(1)}`)
+      .join(' ')
     return `${top} ${bot} Z`
   }
 
@@ -59,14 +62,22 @@ function GraficoCurvas({
 
   return (
     <div className="sim-chart">
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Curvas de integração S_D e alcance externo por número de docentes afastados">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label="Curvas de integração S_D e alcance externo por número de docentes afastados"
+      >
         <line x1={PL} y1={PT} x2={PL} y2={PT + ih} className="ax" />
         <line x1={PL} y1={PT + ih} x2={PL + iw} y2={PT + ih} className="ax" />
-        {[0, 0.5, 1].map(t => (
-          <text key={t} x={PL - 5} y={y(t) + 3} textAnchor="end" className="ax-lbl">{t.toFixed(1).replace('.', ',')}</text>
+        {[0, 0.5, 1].map((t) => (
+          <text key={t} x={PL - 5} y={y(t) + 3} textAnchor="end" className="ax-lbl">
+            {t.toFixed(1).replace('.', ',')}
+          </text>
         ))}
-        {[0, 12, 24, 36, 48].map(k => (
-          <text key={k} x={x(k)} y={H - 5} textAnchor="middle" className="ax-lbl">{k}</text>
+        {[0, 12, 24, 36, 48].map((k) => (
+          <text key={k} x={x(k)} y={H - 5} textAnchor="middle" className="ax-lbl">
+            {k}
+          </text>
         ))}
 
         {/* Limiares de função preservada */}
@@ -90,9 +101,18 @@ function GraficoCurvas({
         <circle cx={x(ult.k)} cy={y(ult.alcance)} r="3.5" className="dot-alc" />
       </svg>
       <div className="sim-leg">
-        <span><i className="sw-sd" />S_D (limiar 0,427)</span>
-        <span><i className="sw-alc" />Alcance (limiar 0,50)</span>
-        <span><i className="sw-band" />Aleatório IC 95% / med.</span>
+        <span>
+          <i className="sw-sd" />
+          S_D (limiar 0,427)
+        </span>
+        <span>
+          <i className="sw-alc" />
+          Alcance (limiar 0,50)
+        </span>
+        <span>
+          <i className="sw-band" />
+          Aleatório IC 95% / med.
+        </span>
       </div>
     </div>
   )
@@ -102,14 +122,24 @@ export function SimuladorPanel({
   rede,
   w,
   refAleat,
+  mobOpen = false,
 }: {
   rede: Rede
   w: Float64Array
   refAleat: ReferenciaAleatoria | null
+  mobOpen?: boolean
 }) {
   const {
-    simAberto, afastados, cenarioAtivo, animando,
-    toggleSim, afastaDocente, reintegraDocente, limpaSimulacao, setCenarioAtivo, setAnimando,
+    simAberto,
+    afastados,
+    cenarioAtivo,
+    animando,
+    toggleSim,
+    afastaDocente,
+    reintegraDocente,
+    limpaSimulacao,
+    setCenarioAtivo,
+    setAnimando,
   } = useStore()
 
   const workerRef = useRef<Worker | null>(null)
@@ -166,7 +196,6 @@ export function SimuladorPanel({
     agendaPasso()
     return () => {
       cancelado = true
-      simReqRef.current++
       if (timer !== null) window.clearTimeout(timer)
     }
   }, [animando, cenarioAtivo, rede, afastaDocente, setAnimando])
@@ -183,22 +212,25 @@ export function SimuladorPanel({
   }
 
   return (
-    <section className={`card sim ${simAberto ? 'open' : ''}`} aria-label="Simulador de afastamento">
+    <section
+      className={`card sim ${simAberto ? 'open' : ''}`}
+      data-mob-open={mobOpen ? 'true' : undefined}
+      aria-label="Simulador de afastamento"
+    >
       <div className="sim-bar">
-        <button
-          type="button"
-          className="sim-toggle"
-          aria-expanded={simAberto}
-          onClick={() => toggleSim()}
-        >
+        <button type="button" className="sim-toggle" aria-expanded={simAberto} onClick={() => toggleSim()}>
           <span className="kick">Simulador de afastamento</span>
-          {afastados.length > 0 && <span className="badge">{afastados.length} afastado{afastados.length > 1 ? 's' : ''}</span>}
+          {afastados.length > 0 && (
+            <span className="badge">
+              {afastados.length} afastado{afastados.length > 1 ? 's' : ''}
+            </span>
+          )}
           <span className="chev">{simAberto ? '▾' : '▴'}</span>
         </button>
 
         {simAberto && (
           <div className="sim-actions">
-            {CENARIOS.map(c => (
+            {CENARIOS.map((c) => (
               <button
                 key={c.id}
                 type="button"
@@ -209,9 +241,16 @@ export function SimuladorPanel({
               </button>
             ))}
             {animando && (
-              <button type="button" className="btn-sm" onClick={() => setAnimando(false)}>Pausar</button>
+              <button type="button" className="btn-sm" onClick={() => setAnimando(false)}>
+                Pausar
+              </button>
             )}
-            <button type="button" className="btn-sm" onClick={limpaSimulacao} disabled={afastados.length === 0 && !animando}>
+            <button
+              type="button"
+              className="btn-sm"
+              onClick={limpaSimulacao}
+              disabled={afastados.length === 0 && !animando}
+            >
               Limpar
             </button>
             <button
@@ -255,9 +294,11 @@ export function SimuladorPanel({
               <div className="kick">Docentes afastados ({afastados.length}) — clique para reintegrar</div>
               <div className="chips">
                 {afastados.length === 0 ? (
-                  <span className="muted-txt">Nenhum docente afastado. Selecione um docente no grafo ou inicie um cenário.</span>
+                  <span className="muted-txt">
+                    Nenhum docente afastado. Selecione um docente no grafo ou inicie um cenário.
+                  </span>
                 ) : (
-                  afastados.map(idx => (
+                  afastados.map((idx) => (
                     <button
                       key={idx}
                       type="button"

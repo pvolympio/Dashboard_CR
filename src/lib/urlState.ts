@@ -40,8 +40,10 @@ export function parseHash(hash: string): EstadoURL {
   const m = sp.get('m') as ModeloPeso | null
   if (m && MODELOS.has(m)) out.modelo = m
 
-  const p = Number(sp.get('p')), f = Number(sp.get('f')), j = Number(sp.get('j'))
-  if ([p, f, j].every(v => Number.isFinite(v) && v >= 0 && v <= 1)) {
+  const p = Number(sp.get('p')),
+    f = Number(sp.get('f')),
+    j = Number(sp.get('j'))
+  if ([p, f, j].every((v) => Number.isFinite(v) && v >= 0 && v <= 1)) {
     const soma = p + f + j
     if (soma > 0) out.pesos = { P: p / soma, F: f / soma, J: j / soma }
   }

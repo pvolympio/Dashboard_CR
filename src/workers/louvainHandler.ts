@@ -1,8 +1,7 @@
 import { comunidadesSubgrafo, type Comunidades, type SubgrafoDocentes } from '../lib/rede'
 
 export type WorkerRequest =
-  | { type: 'init'; sub: SubgrafoDocentes }
-  | { type: 'run'; id: number; w: Float64Array; resolucao: number }
+  { type: 'init'; sub: SubgrafoDocentes } | { type: 'run'; id: number; w: Float64Array; resolucao: number }
 
 export type WorkerResponse = { id: number; com: Comunidades }
 

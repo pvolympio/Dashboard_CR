@@ -33,11 +33,13 @@ export function calculaMetricas(
   afastados: ReadonlySet<number>,
   docente: string | null = null,
 ): MetricasSimulacao {
-  const N = r.nos.length, E = r.arestas.length
+  const N = r.nos.length,
+    E = r.arestas.length
   const isDoc = new Uint8Array(N)
   const isMat = new Uint8Array(N)
   const isComp = new Uint8Array(N)
-  let totalDoc = 0, totalExt = 0
+  let totalDoc = 0,
+    totalExt = 0
 
   for (let i = 0; i < N; i++) {
     const cam = r.camadas[r.nos[i][1]]
@@ -53,10 +55,15 @@ export function calculaMetricas(
 
   const adjDoc: number[][] = Array.from({ length: N }, () => [])
   const extAtivo = new Uint8Array(N)
-  let vinculos = 0, pesoSob = 0, pesoTot = 0
+  let vinculos = 0,
+    pesoSob = 0,
+    pesoTot = 0
 
   for (let k = 0; k < E; k++) {
-    const a = r.arestas[k], u = a[0], v = a[1], wk = w[k]
+    const a = r.arestas[k],
+      u = a[0],
+      v = a[1],
+      wk = w[k]
     pesoTot += wk
     if (afastados.has(u) || afastados.has(v)) continue
     pesoSob += wk
@@ -90,7 +97,10 @@ export function calculaMetricas(
       const viz = adjDoc[u]
       for (let j = 0; j < viz.length; j++) {
         const v = viz[j]
-        if (!vis[v]) { vis[v] = 1; fila.push(v) }
+        if (!vis[v]) {
+          vis[v] = 1
+          fila.push(v)
+        }
       }
     }
     if (fila.length > maiorComp) maiorComp = fila.length
@@ -171,7 +181,8 @@ function brandesBetweenness(nos: number[], adj: Map<number, number[]>): Map<numb
 
 /** Escolhe o próximo docente a afastar segundo o critério do cenário e desempate idêntico ao Python. */
 export function proximoAfastamento(r: Rede, afastados: ReadonlySet<number>, cenario: Cenario): number | null {
-  const N = r.nos.length, E = r.arestas.length
+  const N = r.nos.length,
+    E = r.arestas.length
   const docentes: number[] = []
   const isDoc = new Uint8Array(N)
   for (let i = 0; i < N; i++) {
@@ -188,7 +199,9 @@ export function proximoAfastamento(r: Rede, afastados: ReadonlySet<number>, cena
   const ddEdges: [number, number][] = []
 
   for (let k = 0; k < E; k++) {
-    const a = r.arestas[k], u = a[0], v = a[1]
+    const a = r.arestas[k],
+      u = a[0],
+      v = a[1]
     if (afastados.has(u) || afastados.has(v)) continue
     if (isDoc[u] && isDoc[v]) {
       grauDD[u]++
@@ -258,7 +271,12 @@ export function serieSimulacao(r: Rede, w: ArrayLike<number>, seq: readonly numb
 }
 
 /** Gera a sequência completa de afastamentos para um cenário (usado em testes e exportação). */
-export function geraSequenciaCenario(r: Rede, cenario: Cenario, iniciais: readonly number[] = [], passos?: number): number[] {
+export function geraSequenciaCenario(
+  r: Rede,
+  cenario: Cenario,
+  iniciais: readonly number[] = [],
+  passos?: number,
+): number[] {
   const af = new Set<number>(iniciais)
   const seq: number[] = [...iniciais]
   const limite = passos ?? Number.POSITIVE_INFINITY
@@ -275,7 +293,9 @@ export function geraSequenciaCenario(r: Rede, cenario: Cenario, iniciais: readon
 export function exportaSimulacaoCSV(serie: readonly MetricasSimulacao[]): string {
   const linhas = ['passo,docente,S_D,alcance,vinculos,peso']
   for (const m of serie) {
-    linhas.push(`${m.k},${m.docente ?? ''},${m.sd.toFixed(4)},${m.alcance.toFixed(4)},${m.vinculos},${m.peso.toFixed(4)}`)
+    linhas.push(
+      `${m.k},${m.docente ?? ''},${m.sd.toFixed(4)},${m.alcance.toFixed(4)},${m.vinculos},${m.peso.toFixed(4)}`,
+    )
   }
   return linhas.join('\n')
 }

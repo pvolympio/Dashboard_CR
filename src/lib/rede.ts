@@ -1,35 +1,57 @@
 import Graph from 'graphology'
 import louvain from 'graphology-communities-louvain'
 
-export interface Rede { camadas: string[]; categorias: string[]; tipos: string[]; nos: [string, number, number, number, number][]; arestas: number[][] }
+export interface Rede {
+  camadas: string[]
+  categorias: string[]
+  tipos: string[]
+  nos: [string, number, number, number, number][]
+  arestas: number[][]
+}
 export type Pesos = { P: number; F: number; J: number }
 export type ModeloPeso = 'M1' | 'M2' | 'M3'
 export type ModoCor = 'comunidade' | 'area' | 'categoria'
 export type ModoTamanho = 'grau' | 'forca' | 'fixo'
 export type Visao = 'completa' | 'docentes' | 'ego'
-export interface Filtros { mat: boolean; comp: boolean; ext: boolean; percentil: number }
+export interface Filtros {
+  mat: boolean
+  comp: boolean
+  ext: boolean
+  percentil: number
+}
 
 export const PESOS_PADRAO: Pesos = { P: 0.5, F: 0.3, J: 0.2 }
 /** índices dos 8 tipos (colunas 5..12 de cada aresta) por grupo: publicação, formação, projeto */
-const GRUPOS: [keyof Pesos, number[]][] = [['P', [0, 1, 2]], ['F', [3, 4, 5]], ['J', [6, 7]]]
+const GRUPOS: [keyof Pesos, number[]][] = [
+  ['P', [0, 1, 2]],
+  ['F', [3, 4, 5]],
+  ['J', [6, 7]],
+]
 
 export const ehDocente = (r: Rede, i: number) => r.camadas[r.nos[i][1]] !== 'Externo'
 
 /** Muda um peso e redistribui o restante, mantendo a soma em 1. */
 export function normaliza(p: Pesos, chave: keyof Pesos, valor: number): Pesos {
-  const outras = (Object.keys(p) as (keyof Pesos)[]).filter(k => k !== chave)
-  const soma = outras.reduce((s, k) => s + p[k], 0), resto = 1 - valor
+  const outras = (Object.keys(p) as (keyof Pesos)[]).filter((k) => k !== chave)
+  const soma = outras.reduce((s, k) => s + p[k], 0),
+    resto = 1 - valor
   const novo = { ...p, [chave]: valor }
-  outras.forEach(k => { novo[k] = soma === 0 ? resto / outras.length : (p[k] / soma) * resto })
+  outras.forEach((k) => {
+    novo[k] = soma === 0 ? resto / outras.length : (p[k] / soma) * resto
+  })
   return novo
 }
 
 /** Intensidade M2 (equação 2 do artigo) para cada aresta, dado o peso de cada grupo. */
 export function calculaM2(r: Rede, p: Pesos): Float64Array {
-  const T = r.tipos.length, N = r.nos.length, E = r.arestas.length
+  const T = r.tipos.length,
+    N = r.nos.length,
+    E = r.arestas.length
   const tot = new Float64Array(N * T)
   for (let k = 0; k < E; k++) {
-    const a = r.arestas[k], u = a[0] * T, v = a[1] * T
+    const a = r.arestas[k],
+      u = a[0] * T,
+      v = a[1] * T
     for (let t = 0; t < T; t++) {
       const val = a[5 + t]
       tot[u + t] += val
@@ -43,21 +65,37 @@ export function calculaM2(r: Rede, p: Pesos): Float64Array {
   }
   const out = new Float64Array(E)
   for (let k = 0; k < E; k++) {
-    const a = r.arestas[k], u = a[0] * T, v = a[1] * T
+    const a = r.arestas[k],
+      u = a[0] * T,
+      v = a[1] * T
     let w = 0
     for (let t = 0; t < T; t++) {
       const d = tot[u + t] + tot[v + t]
-      if (d > 0) w += tipoPeso[t] * (2 * a[5 + t]) / d
+      if (d > 0) w += (tipoPeso[t] * (2 * a[5 + t])) / d
     }
     out[k] = w
   }
   return out
 }
 
-const mulberry32 = (s: number) => () => { s |= 0; s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
+const mulberry32 = (s: number) => () => {
+  s |= 0
+  s = (s + 0x6d2b79f5) | 0
+  let t = Math.imul(s ^ (s >>> 15), 1 | s)
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+}
 
-export interface Comunidades { particao: Map<number, number>; Q: number; tamanhos: number[]; nmi: number }
-export interface SubgrafoDocentes { nos: string[]; arestas: [string, string, number][] }
+export interface Comunidades {
+  particao: Map<number, number>
+  Q: number
+  tamanhos: number[]
+  nmi: number
+}
+export interface SubgrafoDocentes {
+  nos: string[]
+  arestas: [string, string, number][]
+}
 
 /** Informação Mútua Normalizada (NMI) entre duas partições sobre o mesmo conjunto de chaves. */
 export function calculaNMI(a: Record<string, number>, b: Record<string, number>): number {
@@ -68,19 +106,30 @@ export function calculaNMI(a: Record<string, number>, b: Record<string, number>)
   const contB = new Map<number, number>()
   const par = new Map<string, number>()
   for (let i = 0; i < N; i++) {
-    const k = chaves[i], ca = a[k], cb = b[k]
+    const k = chaves[i],
+      ca = a[k],
+      cb = b[k]
     contA.set(ca, (contA.get(ca) ?? 0) + 1)
     contB.set(cb, (contB.get(cb) ?? 0) + 1)
     const pk = `${ca}:${cb}`
     par.set(pk, (par.get(pk) ?? 0) + 1)
   }
-  let ha = 0, hb = 0, mi = 0
-  contA.forEach(c => { const p = c / N; ha -= p * Math.log(p) })
-  contB.forEach(c => { const p = c / N; hb -= p * Math.log(p) })
+  let ha = 0,
+    hb = 0,
+    mi = 0
+  contA.forEach((c) => {
+    const p = c / N
+    ha -= p * Math.log(p)
+  })
+  contB.forEach((c) => {
+    const p = c / N
+    hb -= p * Math.log(p)
+  })
   if (ha + hb === 0) return 1
   par.forEach((nij, pk) => {
     const [ca, cb] = pk.split(':').map(Number)
-    const na = contA.get(ca)!, nb = contB.get(cb)!
+    const na = contA.get(ca)!,
+      nb = contB.get(cb)!
     mi += (nij / N) * Math.log((N * nij) / (na * nb))
   })
   return (2 * mi) / (ha + hb)
@@ -91,7 +140,10 @@ export function preparaSubgrafoDocentes(r: Rede): SubgrafoDocentes {
   const nos: string[] = []
   const doc = new Uint8Array(r.nos.length)
   for (let i = 0; i < r.nos.length; i++) {
-    if (ehDocente(r, i)) { doc[i] = 1; nos.push(String(i)) }
+    if (ehDocente(r, i)) {
+      doc[i] = 1
+      nos.push(String(i))
+    }
   }
   const arestas: [string, string, number][] = []
   for (let k = 0; k < r.arestas.length; k++) {
@@ -102,7 +154,12 @@ export function preparaSubgrafoDocentes(r: Rede): SubgrafoDocentes {
 }
 
 /** Executa Louvain sobre o subgrafo pré-filtrado de docentes. */
-export function comunidadesSubgrafo(sub: SubgrafoDocentes, w: ArrayLike<number>, resolucao = 1, execucoes = 20): Comunidades {
+export function comunidadesSubgrafo(
+  sub: SubgrafoDocentes,
+  w: ArrayLike<number>,
+  resolucao = 1,
+  execucoes = 20,
+): Comunidades {
   const g = new Graph({ type: 'undirected' })
   for (let i = 0; i < sub.nos.length; i++) g.addNode(sub.nos[i])
   for (let i = 0; i < sub.arestas.length; i++) {
@@ -118,7 +175,8 @@ export function comunidadesSubgrafo(sub: SubgrafoDocentes, w: ArrayLike<number>,
   }
   let nmi = 1
   if (execs.length > 1) {
-    let soma = 0, pares = 0
+    let soma = 0,
+      pares = 0
     for (let i = 0; i < execs.length; i++) {
       for (let j = i + 1; j < execs.length; j++) {
         soma += calculaNMI(execs[i], execs[j])
@@ -128,9 +186,16 @@ export function comunidadesSubgrafo(sub: SubgrafoDocentes, w: ArrayLike<number>,
     nmi = pares > 0 ? soma / pares : 1
   }
   const part = new Map<number, number>(Object.entries(melhor!.c).map(([k, v]) => [+k, v]))
-  const cont = new Map<number, number>(); part.forEach(c => cont.set(c, (cont.get(c) ?? 0) + 1))
-  const ordem = [...cont.entries()].sort((a, b) => b[1] - a[1]); const remap = new Map(ordem.map(([c], i) => [c, i]))
-  return { particao: new Map([...part].map(([k, c]) => [k, remap.get(c)!])), Q: melhor!.Q, tamanhos: ordem.map(([, n]) => n), nmi }
+  const cont = new Map<number, number>()
+  part.forEach((c) => cont.set(c, (cont.get(c) ?? 0) + 1))
+  const ordem = [...cont.entries()].sort((a, b) => b[1] - a[1])
+  const remap = new Map(ordem.map(([c], i) => [c, i]))
+  return {
+    particao: new Map([...part].map(([k, c]) => [k, remap.get(c)!])),
+    Q: melhor!.Q,
+    tamanhos: ordem.map(([, n]) => n),
+    nmi,
+  }
 }
 
 /** Louvain na rede entre docentes ponderada por w; melhor modularidade em `execucoes` sementes (20 no artigo). */
@@ -142,7 +207,8 @@ export function comunidades(r: Rede, w: ArrayLike<number>, resolucao = 1, execuc
 export function calculaPesos(r: Rede, modelo: ModeloPeso, p: Pesos): Float64Array {
   if (modelo === 'M2') return calculaM2(r, p)
   const col = modelo === 'M1' ? 2 : 4
-  const E = r.arestas.length, out = new Float64Array(E)
+  const E = r.arestas.length,
+    out = new Float64Array(E)
   for (let k = 0; k < E; k++) out[k] = r.arestas[k][col]
   return out
 }
@@ -165,7 +231,8 @@ export function filtraRede(
   visao: Visao = 'completa',
   sel: number | null = null,
 ): RedeFiltrada {
-  const N = r.nos.length, E = r.arestas.length
+  const N = r.nos.length,
+    E = r.arestas.length
   const camadaOk = new Uint8Array(N)
   const isDoc = new Uint8Array(N)
   for (let i = 0; i < N; i++) {
@@ -189,7 +256,9 @@ export function filtraRede(
   const egoSet = visao === 'ego' && sel !== null && camadaOk[sel] ? new Set<number>([sel]) : null
   if (egoSet && sel !== null) {
     for (let k = 0; k < E; k++) {
-      const a = r.arestas[k], u = a[0], v = a[1]
+      const a = r.arestas[k],
+        u = a[0],
+        v = a[1]
       if (!camadaOk[u] || !camadaOk[v]) continue
       if (f.percentil > 0 && w[k] < limiarPeso) continue
       if (u === sel) egoSet.add(v)
@@ -203,7 +272,9 @@ export function filtraRede(
   let contArestas = 0
 
   for (let k = 0; k < E; k++) {
-    const a = r.arestas[k], u = a[0], v = a[1]
+    const a = r.arestas[k],
+      u = a[0],
+      v = a[1]
     if (!camadaOk[u] || !camadaOk[v]) continue
     if (f.percentil > 0 && w[k] < limiarPeso) continue
     if (egoSet && (!egoSet.has(u) || !egoSet.has(v))) continue
@@ -216,7 +287,8 @@ export function filtraRede(
   }
 
   const nosVisiveis = new Uint8Array(N)
-  let contNos = 0, contDocentes = 0
+  let contNos = 0,
+    contDocentes = 0
   for (let i = 0; i < N; i++) {
     if (!camadaOk[i]) continue
     if (egoSet && !egoSet.has(i)) continue

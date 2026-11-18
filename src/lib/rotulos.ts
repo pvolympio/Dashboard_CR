@@ -1,12 +1,21 @@
 export const PALETA = [
-  '#3ea3af', '#ff1d44', '#12373d', '#c5cf7a',
-  '#8fcdd4', '#e07a8b', '#6b8e3a', '#f0a35e',
-  '#7f6fb3', '#2a6f7a', '#d9b13b', '#a6a6a6',
+  '#3ea3af',
+  '#ff1d44',
+  '#12373d',
+  '#c5cf7a',
+  '#8fcdd4',
+  '#e07a8b',
+  '#6b8e3a',
+  '#f0a35e',
+  '#7f6fb3',
+  '#2a6f7a',
+  '#d9b13b',
+  '#a6a6a6',
 ]
 
 export const AREA_CORES: Record<string, string> = {
-  'Matemática': '#3ea3af',
-  'Computação': '#ff1d44',
+  Matemática: '#3ea3af',
+  Computação: '#ff1d44',
   Externo: '#9fb4b1',
 }
 

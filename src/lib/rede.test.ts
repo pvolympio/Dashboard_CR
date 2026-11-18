@@ -60,7 +60,7 @@ describe('Filtros e detalhes', () => {
 
   it('extrai os 8 vínculos mais fortes em ordem decrescente', () => {
     const f = filtraRede(rede, w, { mat: true, comp: true, ext: true, percentil: 0 })
-    const idxD18 = rede.nos.findIndex(n => n[0] === 'D18')
+    const idxD18 = rede.nos.findIndex((n) => n[0] === 'D18')
     const d = detalhesNo(rede, w, f.arestasVisiveis, null, idxD18)
     expect(d.codigo).toBe('D18')
     expect(d.vinculos.length).toBe(8)
@@ -74,7 +74,7 @@ describe('Filtros e detalhes', () => {
     expect(fDoc.contagens.nos).toBe(48)
     expect(fDoc.contagens.docentes).toBe(48)
 
-    const idxD18 = rede.nos.findIndex(n => n[0] === 'D18')
+    const idxD18 = rede.nos.findIndex((n) => n[0] === 'D18')
     const fEgo = filtraRede(rede, w, { mat: true, comp: true, ext: true, percentil: 0 }, undefined, 'ego', idxD18)
     const pos = layoutEgocentrico(rede, fEgo.nosVisiveis, idxD18)
     expect(pos.get(idxD18)).toEqual([0, 0])
@@ -86,9 +86,10 @@ describe('Louvain', () => {
   const c = comunidades(rede, calculaM2(rede, PESOS_PADRAO))
   it('classifica os 48 docentes e nenhum externo', () => {
     expect(c.particao.size).toBe(48)
-    expect([...c.particao.keys()].every(i => ehDocente(rede, i))).toBe(true)
+    expect([...c.particao.keys()].every((i) => ehDocente(rede, i))).toBe(true)
   })
-  it('chega perto da modularidade de referência do Python (0,585)', () => expect(Math.abs(c.Q - 0.585)).toBeLessThan(0.05))
+  it('chega perto da modularidade de referência do Python (0,585)', () =>
+    expect(Math.abs(c.Q - 0.585)).toBeLessThan(0.05))
   it('exporta CSV de comunidades somente com códigos de docentes', () => {
     const csv = exportaComunidadesCSV(rede, c)
     const linhas = csv.split('\n')

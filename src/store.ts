@@ -49,7 +49,7 @@ interface Estado {
   reinicia: () => void
 }
 
-export const useStore = create<Estado>(set => ({
+export const useStore = create<Estado>((set) => ({
   modelo: 'M2',
   pesos: PESOS_PADRAO,
   resolucao: 1,
@@ -64,34 +64,35 @@ export const useStore = create<Estado>(set => ({
   afastados: [],
   cenarioAtivo: null,
   animando: false,
-  setModelo: modelo => set({ modelo }),
-  setPeso: (k, v) => set(s => ({ pesos: normaliza(s.pesos, k, v) })),
-  setResolucao: resolucao => set({ resolucao }),
-  setModoCor: modoCor => set({ modoCor }),
-  setModoTamanho: modoTamanho => set({ modoTamanho }),
-  setVisao: visao => set({ visao }),
-  toggleApresentacao: b => set(s => ({ apresentacao: b ?? !s.apresentacao })),
-  aplicaEstadoURL: e => set(s => ({
-    modelo: e.modelo ?? s.modelo,
-    pesos: e.pesos ?? s.pesos,
-    resolucao: e.resolucao ?? s.resolucao,
-    modoCor: e.modoCor ?? s.modoCor,
-    modoTamanho: e.modoTamanho ?? s.modoTamanho,
-    visao: e.visao ?? s.visao,
-    sel: e.sel !== undefined ? e.sel : s.sel,
-  })),
-  setFiltro: (k, v) => set(s => ({ filtros: { ...s.filtros, [k]: v } })),
-  seleciona: sel => set({ sel, grupoRealcado: null }),
-  realcaGrupo: g => set(s => ({ grupoRealcado: s.grupoRealcado === g ? null : g, sel: null })),
-  toggleSim: aberto => set(s => ({ simAberto: aberto ?? !s.simAberto })),
-  afastaDocente: idx => set(s => (
-    s.afastados.includes(idx)
-      ? s
-      : { afastados: [...s.afastados, idx], sel: s.sel === idx ? null : s.sel }
-  )),
-  reintegraDocente: idx => set(s => ({ afastados: s.afastados.filter(x => x !== idx) })),
+  setModelo: (modelo) => set({ modelo }),
+  setPeso: (k, v) => set((s) => ({ pesos: normaliza(s.pesos, k, v) })),
+  setResolucao: (resolucao) => set({ resolucao }),
+  setModoCor: (modoCor) => set({ modoCor }),
+  setModoTamanho: (modoTamanho) => set({ modoTamanho }),
+  setVisao: (visao) => set({ visao }),
+  toggleApresentacao: (b) => set((s) => ({ apresentacao: b ?? !s.apresentacao })),
+  aplicaEstadoURL: (e) =>
+    set((s) => ({
+      modelo: e.modelo ?? s.modelo,
+      pesos: e.pesos ?? s.pesos,
+      resolucao: e.resolucao ?? s.resolucao,
+      modoCor: e.modoCor ?? s.modoCor,
+      modoTamanho: e.modoTamanho ?? s.modoTamanho,
+      visao: e.visao ?? s.visao,
+      sel: e.sel !== undefined ? e.sel : s.sel,
+    })),
+  setFiltro: (k, v) => set((s) => ({ filtros: { ...s.filtros, [k]: v } })),
+  seleciona: (sel) => set({ sel, grupoRealcado: null }),
+  realcaGrupo: (g) => set((s) => ({ grupoRealcado: s.grupoRealcado === g ? null : g, sel: null })),
+  toggleSim: (aberto) => set((s) => ({ simAberto: aberto ?? !s.simAberto })),
+  afastaDocente: (idx) =>
+    set((s) =>
+      s.afastados.includes(idx) ? s : { afastados: [...s.afastados, idx], sel: s.sel === idx ? null : s.sel },
+    ),
+  reintegraDocente: (idx) => set((s) => ({ afastados: s.afastados.filter((x) => x !== idx) })),
   limpaSimulacao: () => set({ afastados: [], cenarioAtivo: null, animando: false }),
-  setCenarioAtivo: cenarioAtivo => set({ cenarioAtivo }),
-  setAnimando: animando => set({ animando }),
-  reinicia: () => set({ modelo: 'M2', pesos: PESOS_PADRAO, resolucao: 1, filtros: FILTROS_PADRAO, grupoRealcado: null }),
+  setCenarioAtivo: (cenarioAtivo) => set({ cenarioAtivo }),
+  setAnimando: (animando) => set({ animando }),
+  reinicia: () =>
+    set({ modelo: 'M2', pesos: PESOS_PADRAO, resolucao: 1, filtros: FILTROS_PADRAO, grupoRealcado: null }),
 }))

@@ -2,8 +2,7 @@ import type { Rede } from '../lib/rede'
 import { proximoAfastamento, type Cenario } from '../lib/simulacao'
 
 export type SimWorkerRequest =
-  | { type: 'init'; rede: Rede }
-  | { type: 'next'; id: number; afastados: number[]; cenario: Cenario }
+  { type: 'init'; rede: Rede } | { type: 'next'; id: number; afastados: number[]; cenario: Cenario }
 
 export type SimWorkerResponse = { id: number; prox: number | null }
 

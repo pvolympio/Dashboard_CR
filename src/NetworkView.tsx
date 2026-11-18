@@ -13,7 +13,12 @@ export interface CameraCtrl {
   exportPNG: (legenda: { cor: string; label: string }[]) => void
 }
 
-interface CoresTema { ink: string; edge: string; sel: string; dim: string }
+interface CoresTema {
+  ink: string
+  edge: string
+  sel: string
+  dim: string
+}
 const leCores = (): CoresTema => {
   const st = getComputedStyle(document.documentElement)
   return {
@@ -44,7 +49,9 @@ export function NetworkView({
   const { sel, modoCor, modoTamanho, grupoRealcado, visao } = useStore()
 
   const { wmax, gmaxVis, fmaxVis } = useMemo(() => {
-    let wm = 0, gm = 0, fm = 0
+    let wm = 0,
+      gm = 0,
+      fm = 0
     for (let k = 0; k < w.length; k++) if (filtrada.arestasVisiveis[k] && w[k] > wm) wm = w[k]
     for (let i = 0; i < rede.nos.length; i++) {
       if (!filtrada.nosVisiveis[i]) continue
@@ -67,10 +74,14 @@ export function NetworkView({
   }, [sel, rede.arestas, filtrada.arestasVisiveis])
 
   const live = useRef({ w, wmax, gmaxVis, fmaxVis, filtrada, com, sel, viz, modoCor, modoTamanho, grupoRealcado })
-  live.current = { w, wmax, gmaxVis, fmaxVis, filtrada, com, sel, viz, modoCor, modoTamanho, grupoRealcado }
+  const onCameraReadyRef = useRef(onCameraReady)
+  useEffect(() => {
+    onCameraReadyRef.current = onCameraReady
+  }, [onCameraReady])
 
   useEffect(() => {
-    const N = rede.nos.length, E = rede.arestas.length
+    const N = rede.nos.length,
+      E = rede.arestas.length
     const g = new Graph({ type: 'undirected' })
 
     const isDoc = new Uint8Array(N)
@@ -79,7 +90,8 @@ export function NetworkView({
     const labels = new Array<string>(N)
 
     for (let i = 0; i < N; i++) {
-      const n = rede.nos[i], doc = ehDocente(rede, i)
+      const n = rede.nos[i],
+        doc = ehDocente(rede, i)
       isDoc[i] = doc ? 1 : 0
       areaColors[i] = doc ? (AREA_CORES[rede.camadas[n[1]]] ?? AREA_CORES.Externo) : AREA_CORES.Externo
       catColors[i] = CATEGORIA_CORES[rede.categorias[n[2]]] ?? AREA_CORES.Externo
@@ -102,12 +114,15 @@ export function NetworkView({
       minCameraRatio: 0.03,
       maxCameraRatio: 4,
       nodeReducer: (k, d) => {
-        const i = +k, L = live.current, C = coresRef.current
+        const i = +k,
+          L = live.current,
+          C = coresRef.current
         if (!L.filtrada.nosVisiveis[i]) return { ...d, hidden: true }
         const doc = isDoc[i] === 1
         let color = AREA_CORES.Externo
         if (L.modoCor === 'categoria') color = catColors[i]
-        else if (doc) color = L.modoCor === 'comunidade' ? PALETA[(L.com.particao.get(i) ?? 0) % PALETA.length] : areaColors[i]
+        else if (doc)
+          color = L.modoCor === 'comunidade' ? PALETA[(L.com.particao.get(i) ?? 0) % PALETA.length] : areaColors[i]
 
         let label = labels[i]
         if (L.sel !== null && i !== L.sel && !L.viz?.has(i)) {
@@ -115,7 +130,10 @@ export function NetworkView({
           label = ''
         } else if (L.sel === null && L.grupoRealcado !== null) {
           const emGrupo = doc && L.com.particao.get(i) === L.grupoRealcado
-          if (!emGrupo) { color = C.dim; label = '' }
+          if (!emGrupo) {
+            color = C.dim
+            label = ''
+          }
         }
 
         let size = doc ? 6 : 2.2
@@ -128,7 +146,9 @@ export function NetworkView({
         return { ...d, hidden: false, color, label, forceLabel: i === L.sel, size }
       },
       edgeReducer: (k, d) => {
-        const idx = +k, L = live.current, C = coresRef.current
+        const idx = +k,
+          L = live.current,
+          C = coresRef.current
         if (!L.filtrada.arestasVisiveis[idx]) return { ...d, hidden: true }
         const a = rede.arestas[idx]
         const size = 0.3 + 1.7 * (L.w[idx] / L.wmax)
@@ -138,7 +158,8 @@ export function NetworkView({
             : { ...d, hidden: false, size, color: C.dim }
         }
         if (L.grupoRealcado !== null) {
-          const g0 = L.com.particao.get(a[0]), g1 = L.com.particao.get(a[1])
+          const g0 = L.com.particao.get(a[0]),
+            g1 = L.com.particao.get(a[1])
           return g0 === L.grupoRealcado && g1 === L.grupoRealcado
             ? { ...d, hidden: false, size: size + 0.5, color: C.sel }
             : { ...d, hidden: false, size, color: C.dim }
@@ -150,7 +171,10 @@ export function NetworkView({
     s.on('clickNode', ({ node }) => useStore.getState().seleciona(+node))
     s.on('clickStage', () => useStore.getState().seleciona(null))
 
-    const ro = new ResizeObserver(() => { s.resize(); s.refresh() })
+    const ro = new ResizeObserver(() => {
+      s.resize()
+      s.refresh()
+    })
     ro.observe(el.current!)
 
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
@@ -162,7 +186,7 @@ export function NetworkView({
     mq.addEventListener('change', onTema)
     sg.current = s
 
-    onCameraReady?.({
+    onCameraReadyRef.current?.({
       zoomIn: () => s.getCamera().animatedZoom({ duration: 200 }),
       zoomOut: () => s.getCamera().animatedUnzoom({ duration: 200 }),
       reset: () => s.getCamera().animatedReset({ duration: 250 }),
@@ -175,7 +199,8 @@ export function NetworkView({
         if (!container) return
         const canvases = container.querySelectorAll('canvas')
         if (canvases.length === 0) return
-        const w = container.clientWidth || 1200, h = container.clientHeight || 800
+        const w = container.clientWidth || 1200,
+          h = container.clientHeight || 800
         const out = document.createElement('canvas')
         out.width = w
         out.height = h
@@ -184,11 +209,16 @@ export function NetworkView({
         const st = getComputedStyle(document.documentElement)
         ctx.fillStyle = st.getPropertyValue('--bg').trim() || '#f0f6b9'
         ctx.fillRect(0, 0, w, h)
-        canvases.forEach(c => {
-          try { ctx.drawImage(c, 0, 0, w, h) } catch { /* ignore empty canvas */ }
+        canvases.forEach((c) => {
+          try {
+            ctx.drawImage(c, 0, 0, w, h)
+          } catch {
+            /* ignore empty canvas */
+          }
         })
         // Legenda no canto inferior esquerdo
-        const pad = 12, lh = 18
+        const pad = 12,
+          lh = 18
         const boxH = pad * 2 + legenda.length * lh + 20
         const boxW = 240
         ctx.fillStyle = st.getPropertyValue('--card').trim() || 'rgba(255,255,255,0.85)'
@@ -226,24 +256,35 @@ export function NetworkView({
 
   // Recalcula o layout apenas na visão egocêntrica e restaura as coordenadas originais ao sair dela
   useEffect(() => {
-    const g = grafoRef.current, s = sg.current
+    const g = grafoRef.current,
+      s = sg.current
     if (!g || !s) return
     if (visao === 'ego' && sel !== null) {
       const pos = layoutEgocentrico(rede, filtrada.nosVisiveis, sel)
       pos.forEach(([x, y], idx) => {
         const k = String(idx)
-        if (g.hasNode(k)) { g.setNodeAttribute(k, 'x', x); g.setNodeAttribute(k, 'y', y) }
+        if (g.hasNode(k)) {
+          g.setNodeAttribute(k, 'x', x)
+          g.setNodeAttribute(k, 'y', y)
+        }
       })
       s.getCamera().animatedReset({ duration: 200 })
     } else {
       for (let i = 0; i < rede.nos.length; i++) {
-        const k = String(i), n = rede.nos[i]
-        if (g.hasNode(k)) { g.setNodeAttribute(k, 'x', n[3]); g.setNodeAttribute(k, 'y', n[4]) }
+        const k = String(i),
+          n = rede.nos[i]
+        if (g.hasNode(k)) {
+          g.setNodeAttribute(k, 'x', n[3])
+          g.setNodeAttribute(k, 'y', n[4])
+        }
       }
     }
     s.refresh()
   }, [visao, sel, rede, filtrada.nosVisiveis])
 
-  useEffect(() => { sg.current?.refresh() }, [w, wmax, gmaxVis, fmaxVis, filtrada, com, sel, modoCor, modoTamanho, grupoRealcado])
+  useEffect(() => {
+    live.current = { w, wmax, gmaxVis, fmaxVis, filtrada, com, sel, viz, modoCor, modoTamanho, grupoRealcado }
+    sg.current?.refresh()
+  }, [w, wmax, gmaxVis, fmaxVis, filtrada, com, sel, viz, modoCor, modoTamanho, grupoRealcado])
   return <div ref={el} className="canvas" aria-label="Grafo da rede de cooperação científica do IMC" />
 }

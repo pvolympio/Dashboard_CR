@@ -28,40 +28,71 @@ export default function App() {
   const [erro, setErro] = useState('')
   const [busca, setBusca] = useState('')
   const [buscaErro, setBuscaErro] = useState('')
+  const [painelMobile, setPainelMobile] = useState<'ctl' | 'res' | 'sim' | null>(null)
   const buscaRef = useRef<HTMLInputElement>(null)
   const camRef = useRef<CameraCtrl | null>(null)
 
   const {
-    modelo, pesos, resolucao, modoCor, modoTamanho, visao, apresentacao, filtros, sel, grupoRealcado, afastados, simAberto,
-    setModelo, setPeso, setResolucao, setModoCor, setModoTamanho, setVisao, toggleApresentacao, aplicaEstadoURL,
-    setFiltro, seleciona, realcaGrupo, afastaDocente, toggleSim, reinicia,
+    modelo,
+    pesos,
+    resolucao,
+    modoCor,
+    modoTamanho,
+    visao,
+    apresentacao,
+    filtros,
+    sel,
+    grupoRealcado,
+    afastados,
+    simAberto,
+    setModelo,
+    setPeso,
+    setResolucao,
+    setModoCor,
+    setModoTamanho,
+    setVisao,
+    toggleApresentacao,
+    aplicaEstadoURL,
+    setFiltro,
+    seleciona,
+    realcaGrupo,
+    afastaDocente,
+    toggleSim,
+    reinicia,
   } = useStore()
   const hashRestaurado = useRef(false)
 
   useEffect(() => {
     const ac = new AbortController()
     fetch(`${import.meta.env.BASE_URL}rede.json`, { signal: ac.signal })
-      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
       .then((dados: Rede) => {
         setRede(dados)
         if (!hashRestaurado.current) {
           hashRestaurado.current = true
           const parsed = parseHash(window.location.hash)
-          const selIdx = parsed.selCodigo ? dados.nos.findIndex(n => n[0] === parsed.selCodigo) : undefined
+          const selIdx = parsed.selCodigo ? dados.nos.findIndex((n) => n[0] === parsed.selCodigo) : undefined
           aplicaEstadoURL({ ...parsed, sel: selIdx !== undefined && selIdx >= 0 ? selIdx : undefined })
         }
       })
-      .catch(e => { if (e.name !== 'AbortError') setErro(String(e)) })
+      .catch((e) => {
+        if (e.name !== 'AbortError') setErro(String(e))
+      })
     fetch(`${import.meta.env.BASE_URL}referencia_aleatoria.json`, { signal: ac.signal })
-      .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (d) setRefAleat(d) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) setRefAleat(d)
+      })
       .catch(() => {})
     return () => ac.abort()
   }, [aplicaEstadoURL])
 
   useEffect(() => {
     if (!rede || !hashRestaurado.current) return
-    const selCodigo = sel !== null ? rede.nos[sel]?.[0] ?? null : null
+    const selCodigo = sel !== null ? (rede.nos[sel]?.[0] ?? null) : null
     const hash = serializaHash({ modelo, pesos, resolucao, modoCor, modoTamanho, visao, selCodigo })
     if (window.location.hash !== hash) window.history.replaceState(null, '', hash)
   }, [rede, modelo, pesos, resolucao, modoCor, modoTamanho, visao, sel])
@@ -96,8 +127,10 @@ export default function App() {
   const membrosPorGrupo = useMemo(() => {
     if (!rede || !com) return [] as string[][]
     const grupos: string[][] = com.tamanhos.map(() => [])
-    com.particao.forEach((g, idx) => { grupos[g]?.push(rede.nos[idx][0]) })
-    grupos.forEach(lista => lista.sort())
+    com.particao.forEach((g, idx) => {
+      grupos[g]?.push(rede.nos[idx][0])
+    })
+    grupos.forEach((lista) => lista.sort())
     return grupos
   }, [rede, com])
 
@@ -105,26 +138,6 @@ export default function App() {
     () => (rede && filtrada && sel !== null ? detalhesNo(rede, w, filtrada.arestasVisiveis, com, sel) : null),
     [rede, filtrada, w, com, sel],
   )
-
-  if (erro) return <p className="err">Não foi possível carregar os dados: {erro}</p>
-  if (!rede || !filtrada || !com) return <p className="err">Carregando…</p>
-
-  const gruposCount = com.tamanhos.filter(n => n > 1).length
-  const maxVinculo = det?.vinculos[0]?.peso || 1
-
-  const onBuscar = (e: React.FormEvent) => {
-    e.preventDefault()
-    const q = busca.trim().toUpperCase()
-    if (!q) return
-    const idx = rede.nos.findIndex(n => n[0].toUpperCase() === q)
-    if (idx === -1) {
-      setBuscaErro(`Código "${q}" não encontrado`)
-      return
-    }
-    setBuscaErro('')
-    seleciona(idx)
-    camRef.current?.focusNode(idx)
-  }
 
   const legendaAtual = useMemo(() => {
     if (modoCor === 'area') {
@@ -143,6 +156,26 @@ export default function App() {
     ]
   }, [modoCor])
 
+  if (erro) return <p className="err">Não foi possível carregar os dados: {erro}</p>
+  if (!rede || !filtrada || !com) return <p className="err">Carregando…</p>
+
+  const gruposCount = com.tamanhos.filter((n) => n > 1).length
+  const maxVinculo = det?.vinculos[0]?.peso || 1
+
+  const onBuscar = (e: React.FormEvent) => {
+    e.preventDefault()
+    const q = busca.trim().toUpperCase()
+    if (!q) return
+    const idx = rede.nos.findIndex((n) => n[0].toUpperCase() === q)
+    if (idx === -1) {
+      setBuscaErro(`Código "${q}" não encontrado`)
+      return
+    }
+    setBuscaErro('')
+    seleciona(idx)
+    camRef.current?.focusNode(idx)
+  }
+
   const baixaCSVComunidades = () => {
     const csv = exportaComunidadesCSV(rede, com)
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -156,16 +189,36 @@ export default function App() {
 
   return (
     <div id="app" className={apresentacao ? 'pres' : ''}>
-      <NetworkView rede={rede} w={w} filtrada={filtrada} com={com} onCameraReady={c => { camRef.current = c }} />
+      <NetworkView
+        rede={rede}
+        w={w}
+        filtrada={filtrada}
+        com={com}
+        onCameraReady={(c) => {
+          camRef.current = c
+        }}
+      />
 
       <header className="ttl">
         <div className="kick">UNIFEI · Instituto de Matemática e Computação</div>
-        <h1>Rede de cooperação <em>científica</em></h1>
+        <h1>
+          Rede de cooperação <em>científica</em>
+        </h1>
         <div className="counts" aria-live="polite">
-          <span><b>{fmtInt(filtrada.contagens.nos)}</b> nós</span>
-          <span><b>{fmtInt(filtrada.contagens.docentes)}</b> docentes</span>
-          <span><b>{fmtInt(filtrada.contagens.arestas)}</b> arestas</span>
-          {apresentacao && <span><b>{fmtDec(com.Q, 3)}</b> mod. Q</span>}
+          <span>
+            <b>{fmtInt(filtrada.contagens.nos)}</b> nós
+          </span>
+          <span>
+            <b>{fmtInt(filtrada.contagens.docentes)}</b> docentes
+          </span>
+          <span>
+            <b>{fmtInt(filtrada.contagens.arestas)}</b> arestas
+          </span>
+          {apresentacao && (
+            <span>
+              <b>{fmtDec(com.Q, 3)}</b> mod. Q
+            </span>
+          )}
         </div>
       </header>
 
@@ -176,174 +229,340 @@ export default function App() {
       )}
 
       {!apresentacao && (
-      <aside className="card ctl" aria-label="Controles de exploração">
-        <form onSubmit={onBuscar} className="search">
-          <label htmlFor="busca-no" className="kick">Buscar nó (/)</label>
-          <div className="search-row">
-            <input
-              id="busca-no"
-              ref={buscaRef}
-              type="text"
-              placeholder="Ex.: D18 ou X00001"
-              value={busca}
-              onChange={e => { setBusca(e.target.value); if (buscaErro) setBuscaErro('') }}
-            />
-            <button type="submit" className="btn-sm">Ir</button>
+        <aside
+          className="card ctl"
+          data-mob-open={painelMobile === 'ctl' ? 'true' : undefined}
+          aria-label="Controles de exploração"
+        >
+          <div className="mob-sheet-bar">
+            <span className="kick">Controles</span>
+            <button
+              type="button"
+              className="btn-icon"
+              aria-label="Fechar controles"
+              onClick={() => setPainelMobile(null)}
+            >
+              ×
+            </button>
           </div>
-          {buscaErro && <div className="search-err" role="status">{buscaErro}</div>}
-        </form>
+          <form onSubmit={onBuscar} className="search">
+            <label htmlFor="busca-no" className="kick">
+              Buscar nó (/)
+            </label>
+            <div className="search-row">
+              <input
+                id="busca-no"
+                ref={buscaRef}
+                type="text"
+                placeholder="Ex.: D18 ou X00001"
+                value={busca}
+                onChange={(e) => {
+                  setBusca(e.target.value)
+                  if (buscaErro) setBuscaErro('')
+                }}
+              />
+              <button type="submit" className="btn-sm">
+                Ir
+              </button>
+            </div>
+            {buscaErro && (
+              <div className="search-err" role="status">
+                {buscaErro}
+              </div>
+            )}
+          </form>
 
-        <h2>Modelo de peso</h2>
-        <div className="seg" role="group" aria-label="Modelo de peso das arestas">
-          {(['M1', 'M2', 'M3'] as ModeloPeso[]).map(m => (
-            <button key={m} type="button" className={modelo === m ? 'on' : ''} aria-pressed={modelo === m} onClick={() => setModelo(m)}>{m}</button>
+          <h2>Modelo de peso</h2>
+          <div className="seg" role="group" aria-label="Modelo de peso das arestas">
+            {(['M1', 'M2', 'M3'] as ModeloPeso[]).map((m) => (
+              <button
+                key={m}
+                type="button"
+                className={modelo === m ? 'on' : ''}
+                aria-pressed={modelo === m}
+                onClick={() => setModelo(m)}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+
+          <h2>Pesos do M2 {modelo !== 'M2' && <span className="muted-tag">fixo em {modelo}</span>}</h2>
+          {(Object.keys(NOMES_PESO) as (keyof typeof NOMES_PESO)[]).map((k) => (
+            <label key={k} className={`sl ${modelo !== 'M2' ? 'dis' : ''}`}>
+              <span>{NOMES_PESO[k]}</span>
+              <b>{fmtDec(pesos[k])}</b>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                disabled={modelo !== 'M2'}
+                value={pesos[k]}
+                onChange={(e) => setPeso(k, +e.target.value)}
+              />
+            </label>
           ))}
-        </div>
 
-        <h2>Pesos do M2 {modelo !== 'M2' && <span className="muted-tag">fixo em {modelo}</span>}</h2>
-        {(Object.keys(NOMES_PESO) as (keyof typeof NOMES_PESO)[]).map(k => (
-          <label key={k} className={`sl ${modelo !== 'M2' ? 'dis' : ''}`}>
-            <span>{NOMES_PESO[k]}</span>
-            <b>{fmtDec(pesos[k])}</b>
+          <label className="sl">
+            <span className="kick-lbl">Resolução do Louvain</span>
+            <b className="mono">{fmtDec(resolucao, 1)}</b>
+            <input
+              type="range"
+              min={0.4}
+              max={2}
+              step={0.1}
+              value={resolucao}
+              onChange={(e) => setResolucao(+e.target.value)}
+            />
+          </label>
+
+          <h2>Cor dos nós</h2>
+          <div className="seg" role="group" aria-label="Critério de cor dos nós">
+            {(
+              [
+                ['comunidade', 'Comunidade'],
+                ['area', 'Área'],
+                ['categoria', 'Categoria'],
+              ] as [ModoCor, string][]
+            ).map(([m, lbl]) => (
+              <button
+                key={m}
+                type="button"
+                className={modoCor === m ? 'on' : ''}
+                aria-pressed={modoCor === m}
+                onClick={() => setModoCor(m)}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+
+          <h2>Tamanho dos nós</h2>
+          <div className="seg" role="group" aria-label="Critério de tamanho dos nós">
+            {(
+              [
+                ['grau', 'Grau'],
+                ['forca', 'Força'],
+                ['fixo', 'Fixo'],
+              ] as [ModoTamanho, string][]
+            ).map(([m, lbl]) => (
+              <button
+                key={m}
+                type="button"
+                className={modoTamanho === m ? 'on' : ''}
+                aria-pressed={modoTamanho === m}
+                onClick={() => setModoTamanho(m)}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+
+          <h2>Visão da rede</h2>
+          <div className="seg" role="group" aria-label="Visão da rede">
+            {(
+              [
+                ['completa', 'Completa'],
+                ['docentes', 'Docentes'],
+                ['ego', 'Egocêntrica'],
+              ] as [Visao, string][]
+            ).map(([v, lbl]) => (
+              <button
+                key={v}
+                type="button"
+                className={visao === v ? 'on' : ''}
+                aria-pressed={visao === v}
+                onClick={() => setVisao(v)}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+          {visao === 'ego' && sel === null && (
+            <div className="muted-txt" style={{ marginTop: 4 }}>
+              Selecione um nó para centralizar a visão egocêntrica.
+            </div>
+          )}
+
+          <h2>Filtros</h2>
+          <div className="checks">
+            <label>
+              <input type="checkbox" checked={filtros.mat} onChange={(e) => setFiltro('mat', e.target.checked)} />{' '}
+              Matemática
+            </label>
+            <label>
+              <input type="checkbox" checked={filtros.comp} onChange={(e) => setFiltro('comp', e.target.checked)} />{' '}
+              Computação
+            </label>
+            <label>
+              <input type="checkbox" checked={filtros.ext} onChange={(e) => setFiltro('ext', e.target.checked)} />{' '}
+              Externos
+            </label>
+          </div>
+          <label className="sl">
+            <span>Peso mínimo (percentil)</span>
+            <b>{filtros.percentil}%</b>
             <input
               type="range"
               min={0}
-              max={1}
-              step={0.05}
-              disabled={modelo !== 'M2'}
-              value={pesos[k]}
-              onChange={e => setPeso(k, +e.target.value)}
+              max={95}
+              step={5}
+              value={filtros.percentil}
+              onChange={(e) => setFiltro('percentil', +e.target.value)}
             />
           </label>
-        ))}
 
-        <label className="sl">
-          <span className="kick-lbl">Resolução do Louvain</span>
-          <b className="mono">{fmtDec(resolucao, 1)}</b>
-          <input type="range" min={0.4} max={2} step={0.1} value={resolucao} onChange={e => setResolucao(+e.target.value)} />
-        </label>
+          <div className="export-row">
+            <button type="button" className="btn-sm" onClick={() => camRef.current?.exportPNG(legendaAtual)}>
+              Exportar PNG
+            </button>
+            <button type="button" className="btn-sm" onClick={baixaCSVComunidades}>
+              CSV grupos
+            </button>
+            <button type="button" className="btn-sm" onClick={() => toggleApresentacao(true)} title="Atalho: P">
+              Apresentar
+            </button>
+          </div>
 
-        <h2>Cor dos nós</h2>
-        <div className="seg" role="group" aria-label="Critério de cor dos nós">
-          {([['comunidade', 'Comunidade'], ['area', 'Área'], ['categoria', 'Categoria']] as [ModoCor, string][]).map(([m, lbl]) => (
-            <button key={m} type="button" className={modoCor === m ? 'on' : ''} aria-pressed={modoCor === m} onClick={() => setModoCor(m)}>{lbl}</button>
-          ))}
-        </div>
-
-        <h2>Tamanho dos nós</h2>
-        <div className="seg" role="group" aria-label="Critério de tamanho dos nós">
-          {([['grau', 'Grau'], ['forca', 'Força'], ['fixo', 'Fixo']] as [ModoTamanho, string][]).map(([m, lbl]) => (
-            <button key={m} type="button" className={modoTamanho === m ? 'on' : ''} aria-pressed={modoTamanho === m} onClick={() => setModoTamanho(m)}>{lbl}</button>
-          ))}
-        </div>
-
-        <h2>Visão da rede</h2>
-        <div className="seg" role="group" aria-label="Visão da rede">
-          {([['completa', 'Completa'], ['docentes', 'Docentes'], ['ego', 'Egocêntrica']] as [Visao, string][]).map(([v, lbl]) => (
-            <button key={v} type="button" className={visao === v ? 'on' : ''} aria-pressed={visao === v} onClick={() => setVisao(v)}>{lbl}</button>
-          ))}
-        </div>
-        {visao === 'ego' && sel === null && <div className="muted-txt" style={{ marginTop: 4 }}>Selecione um nó para centralizar a visão egocêntrica.</div>}
-
-        <h2>Filtros</h2>
-        <div className="checks">
-          <label><input type="checkbox" checked={filtros.mat} onChange={e => setFiltro('mat', e.target.checked)} /> Matemática</label>
-          <label><input type="checkbox" checked={filtros.comp} onChange={e => setFiltro('comp', e.target.checked)} /> Computação</label>
-          <label><input type="checkbox" checked={filtros.ext} onChange={e => setFiltro('ext', e.target.checked)} /> Externos</label>
-        </div>
-        <label className="sl">
-          <span>Peso mínimo (percentil)</span>
-          <b>{filtros.percentil}%</b>
-          <input type="range" min={0} max={95} step={5} value={filtros.percentil} onChange={e => setFiltro('percentil', +e.target.value)} />
-        </label>
-
-        <div className="export-row">
-          <button type="button" className="btn-sm" onClick={() => camRef.current?.exportPNG(legendaAtual)}>Exportar PNG</button>
-          <button type="button" className="btn-sm" onClick={baixaCSVComunidades}>CSV grupos</button>
-          <button type="button" className="btn-sm" onClick={() => toggleApresentacao(true)} title="Atalho: P">Apresentar</button>
-        </div>
-
-        <button type="button" className="btn" onClick={reinicia}>Restaurar padrão</button>
-      </aside>
+          <button type="button" className="btn" onClick={reinicia}>
+            Restaurar padrão
+          </button>
+        </aside>
       )}
 
       {!apresentacao && (
-      <section className="card res" aria-label="Comunidades entre docentes">
-        <div className="kick">
-          Comunidades entre docentes {calculando && <span className="muted-tag">· calculando…</span>}
-        </div>
-        <div className="kp" aria-live="polite">
-          <div><b>{fmtDec(com.Q, 3)}</b><small>modularidade Q</small></div>
-          <div><b>{gruposCount}</b><small>grupos (≥ 2)</small></div>
-          <div>
-            <b>{fmtDec(com.nmi, 3)}</b>
-            <small title="Informação Mútua Normalizada média entre as 20 execuções do Louvain (0 a 1). Valores próximos de 1 indicam comunidades estáveis.">
-              NMI médio <abbr title="Informação Mútua Normalizada média entre as 20 execuções do Louvain (0 a 1). Valores próximos de 1 indicam comunidades estáveis.">?</abbr>
-            </small>
+        <section
+          className="card res"
+          data-mob-open={painelMobile === 'res' ? 'true' : undefined}
+          aria-label="Comunidades entre docentes"
+        >
+          <div className="mob-sheet-bar">
+            <span className="kick">Comunidades</span>
+            <button
+              type="button"
+              className="btn-icon"
+              aria-label="Fechar comunidades"
+              onClick={() => setPainelMobile(null)}
+            >
+              ×
+            </button>
           </div>
-        </div>
-        <div className="groups">
-          {com.tamanhos.map((n, i) => n > 1 && (
-            <div key={i} className={`grp ${grupoRealcado === i ? 'on' : ''}`}>
-              <button
-                type="button"
-                className="row-btn"
-                aria-pressed={grupoRealcado === i}
-                onClick={() => realcaGrupo(i)}
-              >
-                <i style={{ background: PALETA[i % PALETA.length] }} />
-                <span>Grupo {i + 1}</span>
-                <b>{n}</b>
-              </button>
-              <div className="grp-membros">
-                {membrosPorGrupo[i].map(cod => (
-                  <button
-                    key={cod}
-                    type="button"
-                    className="chip-doc"
-                    onClick={() => {
-                      const idx = rede.nos.findIndex(no => no[0] === cod)
-                      if (idx !== -1) { seleciona(idx); camRef.current?.focusNode(idx) }
-                    }}
-                  >{cod}</button>
-                ))}
-              </div>
+          <div className="kick">
+            Comunidades entre docentes {calculando && <span className="muted-tag">· calculando…</span>}
+          </div>
+          <div className="kp" aria-live="polite">
+            <div>
+              <b>{fmtDec(com.Q, 3)}</b>
+              <small>modularidade Q</small>
             </div>
-          ))}
-        </div>
-      </section>
+            <div>
+              <b>{gruposCount}</b>
+              <small>grupos (≥ 2)</small>
+            </div>
+            <div>
+              <b>{fmtDec(com.nmi, 3)}</b>
+              <small title="Informação Mútua Normalizada média entre as 20 execuções do Louvain (0 a 1). Valores próximos de 1 indicam comunidades estáveis.">
+                NMI médio{' '}
+                <abbr title="Informação Mútua Normalizada média entre as 20 execuções do Louvain (0 a 1). Valores próximos de 1 indicam comunidades estáveis.">
+                  ?
+                </abbr>
+              </small>
+            </div>
+          </div>
+          <div className="groups">
+            {com.tamanhos.map(
+              (n, i) =>
+                n > 1 && (
+                  <div key={i} className={`grp ${grupoRealcado === i ? 'on' : ''}`}>
+                    <button
+                      type="button"
+                      className="row-btn"
+                      aria-pressed={grupoRealcado === i}
+                      onClick={() => realcaGrupo(i)}
+                    >
+                      <i style={{ background: PALETA[i % PALETA.length] }} />
+                      <span>Grupo {i + 1}</span>
+                      <b>{n}</b>
+                    </button>
+                    <div className="grp-membros">
+                      {membrosPorGrupo[i].map((cod) => (
+                        <button
+                          key={cod}
+                          type="button"
+                          className="chip-doc"
+                          onClick={() => {
+                            const idx = rede.nos.findIndex((no) => no[0] === cod)
+                            if (idx !== -1) {
+                              seleciona(idx)
+                              camRef.current?.focusNode(idx)
+                            }
+                          }}
+                        >
+                          {cod}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ),
+            )}
+          </div>
+        </section>
       )}
 
       {!apresentacao && det && (
         <section className="card insp" aria-label={`Detalhes de ${det.codigo}`}>
           <div className="insp-head">
             <div>
-              <div className="kick">{det.ehDoc ? `Docente · ${det.camada}` : CATEGORIA_NOMES[det.categoria] ?? det.categoria}</div>
+              <div className="kick">
+                {det.ehDoc ? `Docente · ${det.camada}` : (CATEGORIA_NOMES[det.categoria] ?? det.categoria)}
+              </div>
               <div className="code">{det.codigo}</div>
             </div>
-            <button type="button" className="btn-icon" aria-label="Limpar seleção" onClick={() => seleciona(null)}>×</button>
+            <button type="button" className="btn-icon" aria-label="Limpar seleção" onClick={() => seleciona(null)}>
+              ×
+            </button>
           </div>
           <div className="insp-meta" aria-live="polite">
-            <div><small>Grau</small><b>{det.grau}</b></div>
-            <div><small>Força</small><b>{fmtDec(det.forca, 2)}</b></div>
-            {det.comunidade !== null && <div><small>Comunidade</small><b>Grupo {det.comunidade + 1}</b></div>}
+            <div>
+              <small>Grau</small>
+              <b>{det.grau}</b>
+            </div>
+            <div>
+              <small>Força</small>
+              <b>{fmtDec(det.forca, 2)}</b>
+            </div>
+            {det.comunidade !== null && (
+              <div>
+                <small>Comunidade</small>
+                <b>Grupo {det.comunidade + 1}</b>
+              </div>
+            )}
           </div>
           {det.ehDoc && (
             <button
               type="button"
               className="btn-af"
-              onClick={() => { afastaDocente(det.idx); toggleSim(true) }}
+              onClick={() => {
+                afastaDocente(det.idx)
+                toggleSim(true)
+              }}
             >
               Afastar na simulação
             </button>
           )}
-          {det.porTipo.some(t => t.total > 0) && (
+          {det.porTipo.some((t) => t.total > 0) && (
             <div className="insp-sec">
               <div className="kick">Cooperações por tipo</div>
               <ul className="tipo-list">
-                {det.porTipo.filter(t => t.total > 0).map(t => (
-                  <li key={t.tipo}><span>{TIPO_NOMES[t.tipo] ?? t.tipo}</span><b>{fmtInt(Math.round(t.total))}</b></li>
-                ))}
+                {det.porTipo
+                  .filter((t) => t.total > 0)
+                  .map((t) => (
+                    <li key={t.tipo}>
+                      <span>{TIPO_NOMES[t.tipo] ?? t.tipo}</span>
+                      <b>{fmtInt(Math.round(t.total))}</b>
+                    </li>
+                  ))}
               </ul>
             </div>
           )}
@@ -351,11 +570,19 @@ export default function App() {
             <div className="insp-sec">
               <div className="kick">Vínculos mais fortes</div>
               <ul className="vinc-list">
-                {det.vinculos.map(v => (
+                {det.vinculos.map((v) => (
                   <li key={v.idx}>
-                    <button type="button" onClick={() => { seleciona(v.idx); camRef.current?.focusNode(v.idx) }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        seleciona(v.idx)
+                        camRef.current?.focusNode(v.idx)
+                      }}
+                    >
                       <span className="v-cod">{v.codigo}</span>
-                      <span className="v-bar"><i style={{ width: `${Math.max(4, (v.peso / maxVinculo) * 100)}%` }} /></span>
+                      <span className="v-bar">
+                        <i style={{ width: `${Math.max(4, (v.peso / maxVinculo) * 100)}%` }} />
+                      </span>
                       <b className="v-val">{fmtDec(v.peso, 3)}</b>
                     </button>
                   </li>
@@ -367,21 +594,63 @@ export default function App() {
       )}
 
       {!apresentacao && (
-      <div className={`hud-bot ${simAberto ? 'sim-up' : ''}`}>
-        <div className="card legend" aria-label="Legenda de cores">
-          {legendaAtual.map(item => (
-            <span key={item.label}><i style={{ background: item.cor }} />{item.label}</span>
-          ))}
+        <div className={`hud-bot ${simAberto ? 'sim-up' : ''}`}>
+          <div className="card legend" aria-label="Legenda de cores">
+            {legendaAtual.map((item) => (
+              <span key={item.label}>
+                <i style={{ background: item.cor }} />
+                {item.label}
+              </span>
+            ))}
+          </div>
+          <div className="card zoom-bar" role="group" aria-label="Controles de zoom">
+            <button type="button" aria-label="Aumentar zoom" onClick={() => camRef.current?.zoomIn()}>
+              +
+            </button>
+            <button type="button" aria-label="Diminuir zoom" onClick={() => camRef.current?.zoomOut()}>
+              −
+            </button>
+            <button type="button" aria-label="Reiniciar enquadramento" onClick={() => camRef.current?.reset()}>
+              ↺
+            </button>
+          </div>
         </div>
-        <div className="card zoom-bar" role="group" aria-label="Controles de zoom">
-          <button type="button" aria-label="Aumentar zoom" onClick={() => camRef.current?.zoomIn()}>+</button>
-          <button type="button" aria-label="Diminuir zoom" onClick={() => camRef.current?.zoomOut()}>−</button>
-          <button type="button" aria-label="Reiniciar enquadramento" onClick={() => camRef.current?.reset()}>↺</button>
-        </div>
-      </div>
       )}
 
-      {!apresentacao && <SimuladorPanel rede={rede} w={w} refAleat={refAleat} />}
+      {!apresentacao && <SimuladorPanel rede={rede} w={w} refAleat={refAleat} mobOpen={painelMobile === 'sim'} />}
+
+      {!apresentacao && (
+        <nav className="card mob-nav" aria-label="Painéis móveis">
+          <button
+            type="button"
+            className={painelMobile === 'ctl' ? 'on' : ''}
+            aria-expanded={painelMobile === 'ctl'}
+            onClick={() => setPainelMobile((p) => (p === 'ctl' ? null : 'ctl'))}
+          >
+            Controles
+          </button>
+          <button
+            type="button"
+            className={painelMobile === 'res' ? 'on' : ''}
+            aria-expanded={painelMobile === 'res'}
+            onClick={() => setPainelMobile((p) => (p === 'res' ? null : 'res'))}
+          >
+            Comunidades
+          </button>
+          <button
+            type="button"
+            className={painelMobile === 'sim' ? 'on' : ''}
+            aria-expanded={painelMobile === 'sim'}
+            onClick={() => {
+              const abrir = painelMobile !== 'sim'
+              setPainelMobile(abrir ? 'sim' : null)
+              if (abrir) toggleSim(true)
+            }}
+          >
+            Simulador
+          </button>
+        </nav>
+      )}
 
       <p className="note">Evidência relacional; não mede mérito nem desempenho.</p>
     </div>
