@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light dark;
   --bg: #f0f6b9;
   --bg2: #e0ea9a;
   --card: rgba(255, 255, 255, 0.78);
@@ -11,6 +12,8 @@
   --sel: #12373d;
   --edge: rgba(18, 55, 61, 0.2);
   --dim: rgba(18, 55, 61, 0.08);
+  --scroll: rgba(18, 55, 61, 0.24);
+  --scroll-hover: rgba(38, 123, 133, 0.65);
   --sh: 0 12px 32px -8px rgba(18, 55, 61, 0.22);
 }
 @media (prefers-color-scheme: dark) {
@@ -23,6 +26,8 @@
     --line: rgba(240, 246, 185, 0.16);
     --accent: #4cc0ce;
     --accent2: #3ea3af;
+    --scroll: rgba(76, 192, 206, 0.28);
+    --scroll-hover: rgba(76, 192, 206, 0.68);
     --red: #ff4d6d;
     --sel: #f0f6b9;
     --edge: rgba(240, 246, 185, 0.17);
@@ -32,6 +37,32 @@
 }
 * {
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll) transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 8px 0;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--scroll);
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.2s ease;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-hover);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-button,
+*::-webkit-scrollbar-corner {
+  display: none;
+  background: transparent;
 }
 html,
 body,
