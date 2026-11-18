@@ -3,6 +3,11 @@ import louvain from 'graphology-communities-louvain'
 
 export interface Rede { camadas: string[]; categorias: string[]; tipos: string[]; nos: [string, number, number, number, number][]; arestas: number[][] }
 export type Pesos = { P: number; F: number; J: number }
+export type ModeloPeso = 'M1' | 'M2' | 'M3'
+export type ModoCor = 'comunidade' | 'area' | 'categoria'
+export type ModoTamanho = 'grau' | 'forca' | 'fixo'
+export interface Filtros { mat: boolean; comp: boolean; ext: boolean; percentil: number }
+
 export const PESOS_PADRAO: Pesos = { P: 0.5, F: 0.3, J: 0.2 }
 /** índices dos 8 tipos (colunas 5..12 de cada aresta) por grupo: publicação, formação, projeto */
 const GRUPOS: [keyof Pesos, number[]][] = [['P', [0, 1, 2]], ['F', [3, 4, 5]], ['J', [6, 7]]]
@@ -90,4 +95,135 @@ export function comunidadesSubgrafo(sub: SubgrafoDocentes, w: ArrayLike<number>,
 /** Louvain na rede entre docentes ponderada por w; melhor modularidade em `execucoes` sementes (20 no artigo). */
 export function comunidades(r: Rede, w: ArrayLike<number>, resolucao = 1, execucoes = 20): Comunidades {
   return comunidadesSubgrafo(preparaSubgrafoDocentes(r), w, resolucao, execucoes)
+}
+
+/** Calcula o vetor de pesos das arestas conforme o modelo selecionado (M1, M2 ou M3). */
+export function calculaPesos(r: Rede, modelo: ModeloPeso, p: Pesos): Float64Array {
+  if (modelo === 'M2') return calculaM2(r, p)
+  const col = modelo === 'M1' ? 2 : 4
+  const E = r.arestas.length, out = new Float64Array(E)
+  for (let k = 0; k < E; k++) out[k] = r.arestas[k][col]
+  return out
+}
+
+export interface RedeFiltrada {
+  nosVisiveis: Uint8Array
+  arestasVisiveis: Uint8Array
+  grauVisivel: Uint32Array
+  forcaVisivel: Float64Array
+  contagens: { nos: number; docentes: number; arestas: number }
+  limiarPeso: number
+}
+
+/** Aplica filtros de camada, percentil mínimo de peso e remove externos órfãos. */
+export function filtraRede(r: Rede, w: ArrayLike<number>, f: Filtros, afastados?: ReadonlySet<number>): RedeFiltrada {
+  const N = r.nos.length, E = r.arestas.length
+  const camadaOk = new Uint8Array(N)
+  const isDoc = new Uint8Array(N)
+  for (let i = 0; i < N; i++) {
+    if (afastados?.has(i)) continue
+    const cam = r.camadas[r.nos[i][1]]
+    const doc = cam !== 'Externo'
+    if (doc) isDoc[i] = 1
+    if ((cam === 'Matemática' && f.mat) || (cam === 'Computação' && f.comp) || (cam === 'Externo' && f.ext)) {
+      camadaOk[i] = 1
+    }
+  }
+
+  let limiarPeso = 0
+  if (f.percentil > 0 && E > 0) {
+    const ord = Float64Array.from(w).sort()
+    const idx = Math.min(E - 1, Math.floor((f.percentil / 100) * (E - 1)))
+    limiarPeso = ord[idx]
+  }
+
+  const arestasVisiveis = new Uint8Array(E)
+  const grauVisivel = new Uint32Array(N)
+  const forcaVisivel = new Float64Array(N)
+  let contArestas = 0
+
+  for (let k = 0; k < E; k++) {
+    const a = r.arestas[k], u = a[0], v = a[1]
+    if (!camadaOk[u] || !camadaOk[v]) continue
+    if (f.percentil > 0 && w[k] < limiarPeso) continue
+    arestasVisiveis[k] = 1
+    contArestas++
+    grauVisivel[u]++
+    grauVisivel[v]++
+    forcaVisivel[u] += w[k]
+    forcaVisivel[v] += w[k]
+  }
+
+  const nosVisiveis = new Uint8Array(N)
+  let contNos = 0, contDocentes = 0
+  for (let i = 0; i < N; i++) {
+    if (!camadaOk[i]) continue
+    if (!isDoc[i] && grauVisivel[i] === 0) continue
+    nosVisiveis[i] = 1
+    contNos++
+    if (isDoc[i]) contDocentes++
+  }
+
+  return {
+    nosVisiveis,
+    arestasVisiveis,
+    grauVisivel,
+    forcaVisivel,
+    contagens: { nos: contNos, docentes: contDocentes, arestas: contArestas },
+    limiarPeso,
+  }
+}
+
+export interface DetalhesNo {
+  idx: number
+  codigo: string
+  ehDoc: boolean
+  camada: string
+  categoria: string
+  comunidade: number | null
+  grau: number
+  forca: number
+  porTipo: { tipo: string; total: number }[]
+  vinculos: { idx: number; codigo: string; peso: number; ehDoc: boolean }[]
+}
+
+/** Extrai métricas e os 8 vínculos mais fortes de um nó nas arestas visíveis. */
+export function detalhesNo(
+  r: Rede,
+  w: ArrayLike<number>,
+  arestasVisiveis: Uint8Array,
+  com: Comunidades | null,
+  idx: number,
+): DetalhesNo {
+  const n = r.nos[idx]
+  const ehDoc = ehDocente(r, idx)
+  const T = r.tipos.length
+  const somaTipos = new Float64Array(T)
+  const viz: { idx: number; codigo: string; peso: number; ehDoc: boolean }[] = []
+  let forca = 0
+
+  for (let k = 0; k < r.arestas.length; k++) {
+    if (!arestasVisiveis[k]) continue
+    const a = r.arestas[k]
+    if (a[0] !== idx && a[1] !== idx) continue
+    const outro = a[0] === idx ? a[1] : a[0]
+    const peso = w[k]
+    forca += peso
+    for (let t = 0; t < T; t++) somaTipos[t] += a[5 + t]
+    viz.push({ idx: outro, codigo: r.nos[outro][0], peso, ehDoc: ehDocente(r, outro) })
+  }
+  viz.sort((a, b) => b.peso - a.peso || a.idx - b.idx)
+
+  return {
+    idx,
+    codigo: n[0],
+    ehDoc,
+    camada: r.camadas[n[1]],
+    categoria: r.categorias[n[2]],
+    comunidade: ehDoc && com ? (com.particao.get(idx) ?? null) : null,
+    grau: viz.length,
+    forca,
+    porTipo: r.tipos.map((tipo, t) => ({ tipo, total: somaTipos[t] })),
+    vinculos: viz.slice(0, 8),
+  }
 }
