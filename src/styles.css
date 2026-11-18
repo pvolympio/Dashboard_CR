@@ -108,6 +108,18 @@ select {
   top: 22px;
   pointer-events: none;
 }
+.ttl-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ttl-logo {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  flex: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.2));
+}
 .kick,
 h2,
 small {
@@ -818,6 +830,10 @@ input[type='range'] {
   .ttl {
     left: 14px;
     top: 12px;
+  }
+  .ttl-logo {
+    width: 36px;
+    height: 36px;
   }
   .counts {
     gap: 10px;

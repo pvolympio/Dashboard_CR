@@ -214,10 +214,15 @@ export default function App() {
       />
 
       <header className="ttl">
-        <div className="kick">{config.nomeCompleto}</div>
-        <h1>
-          Rede de cooperação <em>científica</em>
-        </h1>
+        <div className="ttl-brand">
+          <img src={`${import.meta.env.BASE_URL}unifei-logo.png`} alt="Logo da UNIFEI" className="ttl-logo" />
+          <div>
+            <div className="kick">{config.nomeCompleto}</div>
+            <h1>
+              Rede de cooperação <em>científica</em>
+            </h1>
+          </div>
+        </div>
         <div className="counts" aria-live="polite">
           <span>
             <b>{fmtInt(filtrada.contagens.nos)}</b> nós
